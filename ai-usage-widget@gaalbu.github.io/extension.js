@@ -309,7 +309,7 @@ export default class AiUsageWidgetExtension extends Extension {
         this._menu.reactive = true;
 
         const themeRow = box(false, 'ai-usage-menu-row');
-        themeRow.add_child(label('Theme', 'ai-usage-menu-label'));
+        themeRow.add_child(label('Theme:', 'ai-usage-menu-label'));
         themeRow.add_child(new St.Widget({x_expand: true}));
         this._themeValue = label(THEME_LABELS.get(this._state.theme), 'ai-usage-menu-value');
         themeRow.add_child(this._themeValue);

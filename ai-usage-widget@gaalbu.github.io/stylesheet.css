@@ -275,8 +275,12 @@
   font-size: 11px;
   font-weight: 700;
   color: #89b4fa;
+  background-color: rgba(137, 180, 250, 0.14);
+  border-radius: 999px;
+  padding: 2px 7px;
 }
 
 .theme-light .ai-usage-menu-value {
   color: #1e66f5;
+  background-color: rgba(30, 102, 245, 0.12);
 }
