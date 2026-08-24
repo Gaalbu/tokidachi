@@ -683,7 +683,6 @@ export default class AiUsageWidgetExtension extends Extension {
             view.rows.add_child(label(provider.message || 'No usage window available',
                 'ai-usage-error'));
         }
-        this._syncPetAnimation(view);
         return true;
     }
 
@@ -727,7 +726,6 @@ export default class AiUsageWidgetExtension extends Extension {
             provider.status.style_class = 'ai-usage-status-dot attention';
             provider.statusLabel.text = 'Needs attention';
             provider.animationState = 'attention';
-            this._syncPetAnimation(provider);
         }
         this._syncDividers();
         this._hasVisibleProviders = visibleProviders > 0;

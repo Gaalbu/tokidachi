@@ -17,7 +17,7 @@ export function providerVisuals(name, provider) {
     const requestedColor = typeof provider.color === 'string' ? provider.color : '';
     const requestedPet = typeof provider.pet === 'string' ? provider.pet : '';
     return {
-        displayName: requestedName.slice(0, 40) || title(name),
+        displayName: (requestedName || title(name)).slice(0, 40),
         color: HEX_COLOR.test(requestedColor) ? requestedColor : fallbackColor(name),
         pet: PET_PATH.test(requestedPet) ? requestedPet : null,
     };
@@ -26,9 +26,9 @@ export function providerVisuals(name, provider) {
 export function animationState(provider) {
     if (provider?.status !== 'ok' && provider?.status !== 'stale')
         return 'attention';
-    const highestUsage = Array.isArray(provider?.windows)
-        ? Math.max(0, ...provider.windows.map(window => Number(window?.usedPercent) || 0))
-        : 0;
+    let highestUsage = 0;
+    for (const window of Array.isArray(provider?.windows) ? provider.windows : [])
+        highestUsage = Math.max(highestUsage, Number(window?.usedPercent) || 0);
     return highestUsage > 80 ? 'high' : 'idle';
 }
 

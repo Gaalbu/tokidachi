@@ -32,6 +32,9 @@ test('providerVisuals accepts safe metadata and rejects style or path injection'
     assert.equal(fallback.displayName, 'Future');
     assert.match(fallback.color, /^#[0-9a-f]{6}$/i);
     assert.equal(fallback.pet, null);
+
+    const longFallback = providerVisuals('x'.repeat(100), {});
+    assert.equal(longFallback.displayName.length, 40);
 });
 
 test('animationState reflects attention and high usage', () => {
