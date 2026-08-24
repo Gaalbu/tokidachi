@@ -6,6 +6,8 @@ import St from 'gi://St';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 
+import {animationState, providerEntries, providerVisuals} from './providerModel.js';
+
 const DEFAULT_CONFIG = {
     refreshSeconds: 300,
     position: 'top-right',
@@ -15,6 +17,7 @@ const DEFAULT_CONFIG = {
     maxScale: 1.75,
     scaleStep: 0.1,
     theme: 'dark',
+    petAnimations: true,
 };
 
 const DEFAULT_STATE = {
@@ -112,6 +115,8 @@ export default class AiUsageWidgetExtension extends Extension {
         if (this._process)
             this._process.force_exit();
         this._process = null;
+        for (const provider of this._providers?.values() ?? [])
+            this._stopPet(provider);
         if (this._card) {
             if (this._desktopLayer === Main.layoutManager)
                 Main.layoutManager.removeChrome(this._card);
@@ -284,14 +289,9 @@ export default class AiUsageWidgetExtension extends Extension {
         header.add_child(this._minimizeButton);
         this._expandedView.add_child(header);
 
-        this._providers = {
-            claude: this._makeProvider('Claude', 'claude'),
-            codex: this._makeProvider('Codex', 'codex'),
-        };
-        this._expandedView.add_child(this._providers.claude.container);
-        this._divider = new St.Widget({style_class: 'ai-usage-divider'});
-        this._expandedView.add_child(this._providers.codex.container);
-        this._expandedView.insert_child_below(this._divider, this._providers.codex.container);
+        this._providers = new Map();
+        this._providerList = box(true);
+        this._expandedView.add_child(this._providerList);
         this._card.add_child(this._expandedView);
 
         this._restoreButton = iconButton('window-restore-symbolic',
@@ -309,7 +309,7 @@ export default class AiUsageWidgetExtension extends Extension {
         this._menu.reactive = true;
 
         const themeRow = box(false, 'ai-usage-menu-row');
-        themeRow.add_child(label('Theme', 'ai-usage-menu-label'));
+        themeRow.add_child(label('Theme:', 'ai-usage-menu-label'));
         themeRow.add_child(new St.Widget({x_expand: true}));
         this._themeValue = label(THEME_LABELS.get(this._state.theme), 'ai-usage-menu-value');
         themeRow.add_child(this._themeValue);
@@ -368,13 +368,18 @@ export default class AiUsageWidgetExtension extends Extension {
         this._menu.visible = false;
     }
 
-    _makeProvider(name, colorClass) {
+    _makeProvider(name, visuals) {
+        const divider = new St.Widget({style_class: 'ai-usage-divider'});
+        divider.visible = false;
         const container = box(true);
         container.visible = false;
         const heading = box(false, 'ai-usage-provider');
-        heading.add_child(label(name, 'ai-usage-provider-name'));
+        const pet = new St.Icon({style_class: 'ai-usage-pet'});
+        heading.add_child(pet);
+        const nameLabel = label(visuals.displayName, 'ai-usage-provider-name');
+        heading.add_child(nameLabel);
         heading.add_child(new St.Widget({x_expand: true}));
-        const status = new St.Widget({style_class: `ai-usage-status-dot ${colorClass}`});
+        const status = new St.Widget({style_class: 'ai-usage-status-dot'});
         const statusLabel = label('Waiting', 'ai-usage-provider-status');
         heading.add_child(status);
         heading.add_child(statusLabel);
@@ -382,7 +387,11 @@ export default class AiUsageWidgetExtension extends Extension {
 
         const rows = box(true);
         container.add_child(rows);
-        return {container, rows, status, statusLabel, colorClass};
+        const view = {name, divider, container, rows, status, statusLabel, nameLabel,
+            petActor: pet, petPath: visuals.pet, displayName: visuals.displayName,
+            color: visuals.color, animationState: 'idle', animationGeneration: 0};
+        this._updatePetIcon(view);
+        return view;
     }
 
     _placeWidget() {
@@ -584,6 +593,7 @@ export default class AiUsageWidgetExtension extends Extension {
             this._card.remove_style_class_name('minimized');
             this._card.visible = this._hasVisibleProviders === true;
         }
+        this._syncPetAnimations();
     }
 
     _refresh() {
@@ -615,13 +625,34 @@ export default class AiUsageWidgetExtension extends Extension {
     }
 
     _render(data) {
+        const current = new Set();
         let visibleProviders = 0;
-        for (const name of ['claude', 'codex']) {
-            const provider = data.providers?.[name] ?? {};
-            if (this._renderProvider(this._providers[name], provider))
+        for (const [name, provider] of providerEntries(data)) {
+            const visuals = providerVisuals(name, provider);
+            let view = this._providers.get(name);
+            if (!view) {
+                view = this._makeProvider(name, visuals);
+                this._providers.set(name, view);
+                this._providerList.add_child(view.divider);
+                this._providerList.add_child(view.container);
+            } else {
+                view.displayName = visuals.displayName;
+                view.color = visuals.color;
+                view.petPath = visuals.pet;
+                view.nameLabel.text = visuals.displayName;
+                this._updatePetIcon(view);
+            }
+            current.add(name);
+            if (this._renderProvider(view, provider))
                 visibleProviders++;
         }
-        this._divider.visible = visibleProviders === 2;
+        for (const [name, view] of this._providers) {
+            if (!current.has(name)) {
+                view.container.visible = false;
+                this._stopPet(view);
+            }
+        }
+        this._syncDividers();
         this._hasVisibleProviders = visibleProviders > 0;
         this._syncPresentation();
         const time = new Date((data.updatedAt ?? Date.now() / 1000) * 1000);
@@ -635,15 +666,18 @@ export default class AiUsageWidgetExtension extends Extension {
         const visible = provider.configured === true || windows.length > 0;
         view.container.visible = visible;
         if (!visible)
+            this._stopPet(view);
+        if (!visible)
             return false;
         const status = provider.status === 'ok'
             ? 'ok' : provider.status === 'stale' ? 'stale' : 'attention';
-        view.status.style_class = `ai-usage-status-dot ${view.colorClass} ${status}`;
+        view.status.style_class = `ai-usage-status-dot ${status}`;
         view.statusLabel.text = status === 'ok'
             ? 'Connected' : status === 'stale' ? 'Cached' : 'Needs attention';
+        view.animationState = animationState(provider);
 
         for (const window of windows)
-            view.rows.add_child(this._makeUsageRow(window, view.colorClass));
+            view.rows.add_child(this._makeUsageRow(window, view.color));
 
         if (windows.length === 0) {
             view.rows.add_child(label(provider.message || 'No usage window available',
@@ -652,7 +686,7 @@ export default class AiUsageWidgetExtension extends Extension {
         return true;
     }
 
-    _makeUsageRow(window, colorClass) {
+    _makeUsageRow(window, color) {
         const usedPercent = Math.round(clamp(window.usedPercent, 0, 100));
         const container = box(true, 'ai-usage-row');
         const line = box(false);
@@ -663,7 +697,8 @@ export default class AiUsageWidgetExtension extends Extension {
 
         const track = new St.Widget({style_class: 'ai-usage-bar'});
         const fill = new St.Widget({
-            style_class: `ai-usage-bar-fill ${colorClass}`,
+            style_class: 'ai-usage-bar-fill',
+            style: `background-color: ${color};`,
         });
         track.add_child(fill);
         const updateFillWidth = () => {
@@ -682,18 +717,96 @@ export default class AiUsageWidgetExtension extends Extension {
         const safeMessage = String(message).slice(0, 120);
         this._updated.text = 'Offline';
         let visibleProviders = 0;
-        for (const provider of Object.values(this._providers)) {
+        for (const provider of this._providers.values()) {
             if (!provider.container.visible)
                 continue;
             visibleProviders++;
             provider.rows.destroy_all_children();
             provider.rows.add_child(label(safeMessage, 'ai-usage-error'));
-            provider.status.style_class = `ai-usage-status-dot ${provider.colorClass} attention`;
+            provider.status.style_class = 'ai-usage-status-dot attention';
             provider.statusLabel.text = 'Needs attention';
+            provider.animationState = 'attention';
         }
-        this._divider.visible = visibleProviders === 2;
+        this._syncDividers();
         this._hasVisibleProviders = visibleProviders > 0;
         this._syncPresentation();
         this._placeWidget();
+    }
+
+    _syncDividers() {
+        let hasVisibleProvider = false;
+        for (const provider of this._providers.values()) {
+            provider.divider.visible = provider.container.visible && hasVisibleProvider;
+            if (provider.container.visible)
+                hasVisibleProvider = true;
+        }
+    }
+
+    _updatePetIcon(provider) {
+        provider.petActor.visible = provider.petPath !== null;
+        if (!provider.petPath)
+            return;
+        provider.petActor.gicon = new Gio.FileIcon({
+            file: Gio.File.new_for_path(`${this.path}/${provider.petPath}`),
+        });
+    }
+
+    _syncPetAnimations() {
+        for (const provider of this._providers?.values() ?? [])
+            this._syncPetAnimation(provider);
+    }
+
+    _syncPetAnimation(provider) {
+        this._stopPet(provider);
+        if (this._config.petAnimations !== true || this._state.minimized ||
+            !provider.container.visible || !provider.petActor.visible)
+            return;
+        const generation = provider.animationGeneration;
+        this._animatePetStep(provider, generation, true);
+    }
+
+    _animatePetStep(provider, generation, forward) {
+        if (generation !== provider.animationGeneration || this._state.minimized ||
+            this._config.petAnimations !== true || !provider.container.visible)
+            return;
+        const target = this._petAnimationTarget(provider.animationState, forward);
+        provider.petActor.ease({
+            ...target,
+            mode: Clutter.AnimationMode.EASE_IN_OUT_SINE,
+            onComplete: () => this._animatePetStep(provider, generation, !forward),
+        });
+    }
+
+    _petAnimationTarget(state, forward) {
+        if (state === 'high') {
+            return {
+                translation_x: forward ? 3 : -3,
+                translation_y: forward ? -1 : 1,
+                rotation_angle_z: forward ? 4 : -4,
+                duration: 220,
+            };
+        }
+        if (state === 'attention') {
+            return {
+                translation_x: 0,
+                translation_y: forward ? -4 : 0,
+                rotation_angle_z: forward ? 7 : -7,
+                duration: 500,
+            };
+        }
+        return {
+            translation_x: 0,
+            translation_y: forward ? -3 : 0,
+            rotation_angle_z: forward ? 2 : -2,
+            duration: 1300,
+        };
+    }
+
+    _stopPet(provider) {
+        provider.animationGeneration++;
+        provider.petActor.remove_all_transitions();
+        provider.petActor.translation_x = 0;
+        provider.petActor.translation_y = 0;
+        provider.petActor.rotation_angle_z = 0;
     }
 }

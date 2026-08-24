@@ -43,6 +43,11 @@ final class CodexProvider implements UsageProvider {
     }
 
     @Override
+    public ProviderMetadata metadata() {
+        return new ProviderMetadata("Codex", "#4f8cff", "pets/codex.svg");
+    }
+
+    @Override
     public ObjectNode collect() throws ProviderException {
         Process process;
         try {
