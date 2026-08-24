@@ -36,6 +36,9 @@ class CollectorServiceTest {
 
         assertEquals("stale", result.path("providers").path("claude").path("status").asText());
         assertEquals("ok", result.path("providers").path("codex").path("status").asText());
+        assertEquals("Claude", result.path("providers").path("claude").path("displayName").asText());
+        assertEquals("#d97757", result.path("providers").path("claude").path("color").asText());
+        assertEquals("pets/claude.svg", result.path("providers").path("claude").path("pet").asText());
         ObjectNode saved = store.read();
         assertEquals(NOW - 60, saved.path("providers").path("claude").path("cachedAt").asLong());
         assertEquals(NOW, saved.path("providers").path("codex").path("cachedAt").asLong());
@@ -62,6 +65,7 @@ class CollectorServiceTest {
     private UsageProvider failing(String name, String message, boolean configured) {
         return new UsageProvider() {
             public String name() { return name; }
+            public ProviderMetadata metadata() { return metadataFor(name); }
             public ObjectNode collect() throws ProviderException { throw new ProviderException(message, configured); }
         };
     }
@@ -69,6 +73,7 @@ class CollectorServiceTest {
     private UsageProvider successful(String name) {
         return new UsageProvider() {
             public String name() { return name; }
+            public ProviderMetadata metadata() { return metadataFor(name); }
             public ObjectNode collect() {
                 ObjectNode result = mapper.createObjectNode();
                 result.put("status", "ok");
@@ -77,6 +82,13 @@ class CollectorServiceTest {
                 return result;
             }
         };
+    }
+
+    private ProviderMetadata metadataFor(String name) {
+        return new ProviderMetadata(
+                Character.toUpperCase(name.charAt(0)) + name.substring(1),
+                name.equals("claude") ? "#d97757" : "#4f8cff",
+                "pets/" + name + ".svg");
     }
 
     private ArrayNode windows() {

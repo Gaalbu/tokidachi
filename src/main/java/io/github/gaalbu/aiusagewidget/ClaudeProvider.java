@@ -39,6 +39,11 @@ final class ClaudeProvider implements UsageProvider {
     }
 
     @Override
+    public ProviderMetadata metadata() {
+        return new ProviderMetadata("Claude", "#d97757", "pets/claude.svg");
+    }
+
+    @Override
     public ObjectNode collect() throws ProviderException {
         String token = readToken();
         HttpRequest request = HttpRequest.newBuilder(USAGE_URI)

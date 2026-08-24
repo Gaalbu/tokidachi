@@ -31,16 +31,18 @@ final class CollectorService {
             ObjectNode previous = cacheStore.freshProvider(cached, provider.name(), now);
             try {
                 ObjectNode current = provider.collect();
-                providerResults.set(provider.name(), current);
+                providerResults.set(provider.name(), withMetadata(provider, current));
                 cacheProviders.set(provider.name(), cacheEntry(now, current.path("windows")));
             } catch (ProviderException error) {
-                providerResults.set(provider.name(), failure(error.getMessage(), error.configured(), previous));
+                providerResults.set(provider.name(), withMetadata(
+                        provider, failure(error.getMessage(), error.configured(), previous)));
                 if (previous != null) {
                     cacheProviders.set(provider.name(), previous);
                 }
             } catch (RuntimeException error) {
-                providerResults.set(provider.name(), failure(
-                        "Unexpected " + title(provider.name()) + " collector error", previous != null, previous));
+                providerResults.set(provider.name(), withMetadata(provider, failure(
+                        "Unexpected " + provider.metadata().displayName() + " collector error",
+                        previous != null, previous)));
                 if (previous != null) {
                     cacheProviders.set(provider.name(), previous);
                 }
@@ -76,7 +78,11 @@ final class CollectorService {
         return result;
     }
 
-    private String title(String value) {
-        return Character.toUpperCase(value.charAt(0)) + value.substring(1);
+    private ObjectNode withMetadata(UsageProvider provider, ObjectNode result) {
+        ProviderMetadata metadata = provider.metadata();
+        result.put("displayName", metadata.displayName());
+        result.put("color", metadata.color());
+        result.put("pet", metadata.pet());
+        return result;
     }
 }
