@@ -5,9 +5,9 @@
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>io.github.gaalbu</groupId>
-  <artifactId>ai-usage-widget</artifactId>
-  <version>0.2.0</version>
-  <name>AI Usage Widget collector</name>
+  <artifactId>tokidachi</artifactId>
+  <version>0.3.0</version>
+  <name>Tokidachi collector</name>
 
   <properties>
     <maven.compiler.release>21</maven.compiler.release>
@@ -57,7 +57,7 @@
               <createDependencyReducedPom>false</createDependencyReducedPom>
               <transformers>
                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                  <mainClass>io.github.gaalbu.aiusagewidget.CollectorApp</mainClass>
+                  <mainClass>io.github.gaalbu.tokidachi.CollectorApp</mainClass>
                 </transformer>
               </transformers>
             </configuration>
@@ -84,8 +84,8 @@
               </execution>
             </executions>
             <configuration>
-              <mainClass>io.github.gaalbu.aiusagewidget.CollectorApp</mainClass>
-              <imageName>ai-usage-widget</imageName>
+              <mainClass>io.github.gaalbu.tokidachi.CollectorApp</mainClass>
+              <imageName>tokidachi</imageName>
               <fallback>false</fallback>
               <buildArgs>
                 <buildArg>-march=compatibility</buildArg>

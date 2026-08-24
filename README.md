@@ -1,4 +1,4 @@
-# AI Usage Widget
+# Tokidachi
 
 A quiet GNOME Shell widget that shows Claude Code and Codex usage windows on
 Ubuntu. Providers are independent and only configured providers are
@@ -15,6 +15,12 @@ and pick a theme, all with the mouse.
 ![Ubuntu](https://img.shields.io/badge/Ubuntu-24.04%20LTS-E95420?logo=ubuntu&logoColor=white)
 ![GNOME](https://img.shields.io/badge/GNOME-45--48-4A86CF?logo=gnome&logoColor=white)
 ![License](https://img.shields.io/badge/license-MIT-green)
+
+> [!IMPORTANT]
+> Tokidachi replaces the former AI Usage Widget name and uses the new GNOME
+> extension UUID `tokidachi@gaalbu.github.io`. Existing installations need a
+> one-time manual migration. Follow [MIGRATION.md](docs/MIGRATION.md) before
+> installing this release.
 
 ![Tokidachi Companions reacting to usage](docs/assets/tokidachi-companions.gif)
 
@@ -71,12 +77,12 @@ installs the native collector, and enables the extension:
 
 ```bash
 set -euo pipefail
-UUID='ai-usage-widget@gaalbu.github.io'
+UUID='tokidachi@gaalbu.github.io'
 ARCHIVE="$(mktemp --suffix=.tar.gz)"
 INSTALL_DIR="$(mktemp -d)"
 trap 'rm -f "$ARCHIVE"; rm -rf "$INSTALL_DIR"' EXIT
 
-URL='https://github.com/Gaalbu/ai-usage-widget/releases/latest/download/ai-usage-widget-linux-x86_64.tar.gz'
+URL='https://github.com/Gaalbu/tokidachi/releases/latest/download/tokidachi-linux-x86_64.tar.gz'
 if command -v curl >/dev/null 2>&1; then
     curl --fail --location --show-error "$URL" --output "$ARCHIVE"
 elif command -v wget >/dev/null 2>&1; then
@@ -112,7 +118,7 @@ needed. Java and Python do not need to be installed.
 To remove it:
 
 ```bash
-UUID='ai-usage-widget@gaalbu.github.io'
+UUID='tokidachi@gaalbu.github.io'
 DEST="${XDG_DATA_HOME:-$HOME/.local/share}/gnome-shell/extensions/$UUID"
 gnome-extensions disable "$UUID" 2>/dev/null || true
 gio trash "$DEST"
@@ -127,8 +133,8 @@ Source builds require Maven, a GraalVM JDK 21 or newer distribution with Native 
 Node.js for the JavaScript syntax check, and `zip` for release packaging.
 
 ```bash
-git clone https://github.com/Gaalbu/ai-usage-widget.git
-cd ai-usage-widget
+git clone https://github.com/Gaalbu/tokidachi.git
+cd tokidachi
 make test
 make native
 ./scripts/install.sh
@@ -137,15 +143,15 @@ make native
 Build outputs:
 
 - `mvn package` creates the executable
-  `target/ai-usage-widget-0.2.0-all.jar`.
-- `mvn -Pnative package` creates `target/ai-usage-widget`, the standalone
+  `target/tokidachi-0.3.0-all.jar`.
+- `mvn -Pnative package` creates `target/tokidachi`, the standalone
   Linux executable used by the extension.
 - `make package` creates the installable archives under `dist/`.
 
 The JAR is useful for development and diagnostics:
 
 ```bash
-java -jar target/ai-usage-widget-0.2.0-all.jar --pretty
+java -jar target/tokidachi-0.3.0-all.jar --pretty
 ```
 
 ## Interact and customize
@@ -163,14 +169,14 @@ No config-file editing is required for day-to-day use:
   refresh.
 
 Theme and minimized state persist across restarts in
-`~/.config/ai-usage-widget/`. Layout (position, monitor, scale) is saved
+`~/.config/tokidachi/`. Layout (position, monitor, scale) is saved
 separately in `layout.json` in the same directory.
 
 For defaults applied before any interaction has happened, edit `config.json`
 in the installed extension directory:
 
 ```text
-~/.local/share/gnome-shell/extensions/ai-usage-widget@gaalbu.github.io/config.json
+~/.local/share/gnome-shell/extensions/tokidachi@gaalbu.github.io/config.json
 ```
 
 Available values:
@@ -228,10 +234,9 @@ They use original abstract shapes rather than third-party logos. Metadata is
 validated by the extension before it is used as an inline color or local asset
 path.
 
-The project is considering the name **Tokidachi** for a separate future brand
-migration. This PR does not rename the repository, extension UUID, collector,
-or release artifacts; see the [rename checklist](docs/tokidachi-rename-checklist.md)
-for the compatibility work that decision requires.
+Version 0.3.0 introduced the Tokidachi name and UUID. The
+[migration guide](docs/MIGRATION.md) explains how to remove the former
+extension identity and preserve local UI preferences.
 
 Codex is queried with `ProcessBuilder` through the documented local
 `codex app-server --stdio` JSON-RPC method `account/rateLimits/read`. The
@@ -242,7 +247,7 @@ the OAuth access token from Claude Code's local credentials and sends it only
 to Anthropic's usage endpoint. Tokens are kept in memory, never printed,
 logged, cached, or included in process arguments. Cache files contain only
 usage windows and timestamps, use mode `0600`, and live under
-`$XDG_CACHE_HOME/ai-usage-widget/usage.json` (normally `~/.cache`).
+`$XDG_CACHE_HOME/tokidachi/usage.json` (normally `~/.cache`).
 
 ## Tests
 

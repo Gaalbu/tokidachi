@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-readonly UUID='ai-usage-widget@gaalbu.github.io'
+readonly UUID='tokidachi@gaalbu.github.io'
 readonly SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 readonly PROJECT_DIR="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 readonly SOURCE_DIR="$PROJECT_DIR/$UUID"
 readonly DEST_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/gnome-shell/extensions/$UUID"
-readonly BACKUP_ROOT="${XDG_STATE_HOME:-$HOME/.local/state}/ai-usage-widget/backups"
+readonly BACKUP_ROOT="${XDG_STATE_HOME:-$HOME/.local/state}/tokidachi/backups"
 readonly EXTENSION_FILES=(metadata.json extension.js providerModel.js stylesheet.css config.json)
 
 enable_extension() {
@@ -30,16 +30,16 @@ enable_extension() {
     gsettings set org.gnome.shell enabled-extensions "$next"
 }
 
-collector_source="${AI_USAGE_COLLECTOR:-}"
+collector_source="${TOKIDACHI_COLLECTOR:-}"
 if [[ -z "$collector_source" && -x "$SOURCE_DIR/collector" ]]; then
     collector_source="$SOURCE_DIR/collector"
 fi
-if [[ -z "$collector_source" && -x "$PROJECT_DIR/target/ai-usage-widget" ]]; then
-    collector_source="$PROJECT_DIR/target/ai-usage-widget"
+if [[ -z "$collector_source" && -x "$PROJECT_DIR/target/tokidachi" ]]; then
+    collector_source="$PROJECT_DIR/target/tokidachi"
 fi
 if [[ -z "$collector_source" || ! -x "$collector_source" ]]; then
     echo "Native collector not found." >&2
-    echo "Use a Linux release archive, run 'make native', or set AI_USAGE_COLLECTOR." >&2
+    echo "Use a Linux release archive, run 'make native', or set TOKIDACHI_COLLECTOR." >&2
     exit 1
 fi
 

@@ -1,4 +1,4 @@
-package io.github.gaalbu.aiusagewidget;
+package io.github.gaalbu.tokidachi;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -86,9 +86,9 @@ final class CodexProvider implements UsageProvider {
         initialize.put("method", "initialize");
         initialize.put("id", 1);
         ObjectNode clientInfo = initialize.putObject("params").putObject("clientInfo");
-        clientInfo.put("name", "ai_usage_widget");
-        clientInfo.put("title", "AI Usage Widget");
-        clientInfo.put("version", "0.2.0");
+        clientInfo.put("name", "tokidachi");
+        clientInfo.put("title", "Tokidachi");
+        clientInfo.put("version", "0.3.0");
 
         ObjectNode initialized = mapper.createObjectNode();
         initialized.put("method", "initialized");

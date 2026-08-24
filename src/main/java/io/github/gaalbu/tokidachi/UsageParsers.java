@@ -1,4 +1,4 @@
-package io.github.gaalbu.aiusagewidget;
+package io.github.gaalbu.tokidachi;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;

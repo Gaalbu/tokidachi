@@ -29,7 +29,7 @@ jobs:
           node-version: '22'
       - run: make test
       - run: mvn --batch-mode package
-      - run: java -jar target/ai-usage-widget-0.2.0-all.jar --pretty
+      - run: java -jar target/tokidachi-0.3.0-all.jar --pretty
         env:
           HOME: ${{ runner.temp }}/empty-home
           XDG_CACHE_HOME: ${{ runner.temp }}/cache
@@ -46,7 +46,9 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           cache: maven
       - run: mvn --batch-mode -Pnative package
-      - run: target/ai-usage-widget --pretty
+      - run: target/tokidachi --pretty
         env:
           HOME: ${{ runner.temp }}/empty-home
           XDG_CACHE_HOME: ${{ runner.temp }}/cache
+      - run: ./scripts/package.sh target/tokidachi
+      - run: test -f dist/tokidachi-linux-x86_64.tar.gz && test -f dist/tokidachi@gaalbu.github.io.shell-extension.zip
