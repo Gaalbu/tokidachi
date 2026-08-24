@@ -10,8 +10,20 @@ const stylesheet = fs.readFileSync(
     path.join(root, 'tokidachi@gaalbu.github.io', 'stylesheet.css'), 'utf8');
 
 test('theme menu keeps its label distinct from the selected value', () => {
-    assert.match(extension, /label\('Theme:', 'ai-usage-menu-label'\)/);
+    assert.match(extension, /label\(this\._t\('theme'\), 'ai-usage-menu-label'\)/);
     assert.match(stylesheet, /\.ai-usage-menu-value\s*\{[^}]*background-color:/s);
     assert.match(stylesheet, /\.ai-usage-menu-value\s*\{[^}]*border-radius:/s);
     assert.match(stylesheet, /\.ai-usage-menu-value\s*\{[^}]*padding:/s);
+});
+
+test('language selection is persisted, translated, and shipped with the extension', () => {
+    assert.match(extension, /LANGUAGE_SELECTIONS/);
+    assert.match(extension, /language:\s*normalizeLanguageSelection/);
+    assert.match(extension, /this\._state\.language/);
+    assert.match(extension, /this\._cycleLanguage\(\)/);
+
+    const installer = fs.readFileSync(path.join(root, 'scripts', 'install.sh'), 'utf8');
+    const packager = fs.readFileSync(path.join(root, 'scripts', 'package.sh'), 'utf8');
+    assert.match(installer, /i18n\.js/);
+    assert.match(packager, /i18n\.js/);
 });

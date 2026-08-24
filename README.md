@@ -42,6 +42,9 @@ without hiding them.
   card remains hidden.
 - A small local mascot for each provider. Its motion reflects normal, high-use,
   and attention states and stops while the widget is minimized.
+- An interface in English or Brazilian Portuguese. By default, Tokidachi
+  follows the GNOME system language and falls back to English for unsupported
+  locales.
 
 The collector registry and widget rendering support any number of providers,
 but this release has quota integrations for Claude Code and Codex only.
@@ -165,12 +168,17 @@ No config-file editing is required for day-to-day use:
 - Click the **minimize** button (top-right of the header) to collapse the
   widget to a small pill; click the pill to restore it.
 - **Right-click** the card to open a small menu: cycle the theme
-  (Dark → Light → Glass), reset position and size, or force an immediate
-  refresh.
+  (Dark → Light → Glass), choose the interface language (System → English →
+  Portuguese (Brazil)), reset position and size, or force an immediate refresh.
 
-Theme and minimized state persist across restarts in
+Theme, language, and minimized state persist across restarts in
 `~/.config/tokidachi/`. Layout (position, monitor, scale) is saved
 separately in `layout.json` in the same directory.
+
+Changing the language updates the visible interface and accessibility labels
+immediately. Tokidachi translates its own controls and status text; provider
+names, quota-window labels, and collector error messages keep the wording
+returned by their source.
 
 For defaults applied before any interaction has happened, edit `config.json`
 in the installed extension directory:
@@ -190,6 +198,7 @@ Available values:
   "minScale": 0.65,
   "maxScale": 1.75,
   "scaleStep": 0.1,
+  "language": "auto",
   "theme": "dark",
   "petAnimations": true
 }
@@ -197,9 +206,11 @@ Available values:
 
 `position` accepts `top-right`, `top-left`, `bottom-right`, or `bottom-left`,
 and only applies until the widget is first dragged. `theme` accepts `dark`,
-`light`, or `glass`. Set `petAnimations` to `false` to disable all mascot
-motion; the pets remain visible as static icons. Disable and re-enable the
-extension after changing the file.
+`light`, or `glass`. `language` accepts `auto`, `en`, or `pt-BR`; a language
+chosen from the widget menu overrides this default and is saved in `state.json`.
+Set `petAnimations` to `false` to disable all mascot motion; the pets remain
+visible as static icons. Disable and re-enable the extension after changing the
+file.
 
 ## Collector architecture and privacy
 
@@ -258,9 +269,11 @@ make test
 The unit suite covers Claude and Codex parsing, the provider registry and UI
 metadata normalization, percentage clamping, independent provider failures,
 cache expiry, timestamp preservation, private cache permissions, and symlink
-rejection. CI also builds and smoke-tests both the executable JAR and the
-GraalVM native executable. Mascot rendering and Clutter motion require a live
-GNOME Shell session and are validated manually.
+rejection. JavaScript tests also cover language selection, locale fallback,
+translation interpolation, and inclusion of every runtime module in installed
+and packaged builds. CI builds and smoke-tests both the executable JAR and the
+GraalVM native executable. Mascot rendering, pointer interaction, and Clutter
+motion require a live GNOME Shell session and are validated manually.
 
 ## Troubleshooting
 

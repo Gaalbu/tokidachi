@@ -6,6 +6,8 @@ NATIVE := target/tokidachi
 test:
 	mvn test
 	node --check $(UUID)/extension.js
+	node --check $(UUID)/i18n.js
+	node --experimental-default-type=module --test tests/i18n.test.js
 	node --experimental-default-type=module --test tests/provider-model.test.js
 	node --test tests/ui-source.test.js
 	node --test tests/branding.test.js

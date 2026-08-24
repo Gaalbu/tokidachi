@@ -7,7 +7,7 @@ readonly PROJECT_DIR="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 readonly SOURCE_DIR="$PROJECT_DIR/$UUID"
 readonly DEST_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/gnome-shell/extensions/$UUID"
 readonly BACKUP_ROOT="${XDG_STATE_HOME:-$HOME/.local/state}/tokidachi/backups"
-readonly EXTENSION_FILES=(metadata.json extension.js providerModel.js stylesheet.css config.json)
+readonly EXTENSION_FILES=(metadata.json extension.js i18n.js providerModel.js stylesheet.css config.json)
 
 enable_extension() {
     if gnome-extensions enable "$UUID" 2>/dev/null; then

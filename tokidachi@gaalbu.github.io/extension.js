@@ -6,6 +6,12 @@ import St from 'gi://St';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 
+import {
+    LANGUAGE_SELECTIONS,
+    normalizeLanguageSelection,
+    resolveLanguage,
+    translate,
+} from './i18n.js';
 import {animationState, providerEntries, providerVisuals} from './providerModel.js';
 
 const DEFAULT_CONFIG = {
@@ -16,19 +22,26 @@ const DEFAULT_CONFIG = {
     minScale: 0.65,
     maxScale: 1.75,
     scaleStep: 0.1,
+    language: 'auto',
     theme: 'dark',
     petAnimations: true,
 };
 
 const DEFAULT_STATE = {
     minimized: false,
+    language: 'auto',
 };
 
 const THEME_ORDER = ['dark', 'light', 'glass'];
-const THEME_LABELS = new Map([
-    ['dark', 'Dark'],
-    ['light', 'Light'],
-    ['glass', 'Glass'],
+const THEME_MESSAGE_KEYS = new Map([
+    ['dark', 'themeDark'],
+    ['light', 'themeLight'],
+    ['glass', 'themeGlass'],
+]);
+const LANGUAGE_MESSAGE_KEYS = new Map([
+    ['auto', 'languageAuto'],
+    ['en', 'languageEnglish'],
+    ['pt-BR', 'languagePortuguese'],
 ]);
 const THEME_ALIASES = new Map([
     ['dark', 'dark'],
@@ -72,6 +85,7 @@ export default class TokidachiExtension extends Extension {
         ]);
         this._layoutState = this._readLayoutState();
         this._state = this._readState();
+        this._language = resolveLanguage(this._state.language, GLib.get_language_names());
         this._menuOpen = false;
         this._buildUi();
 
@@ -118,15 +132,19 @@ export default class TokidachiExtension extends Extension {
         for (const provider of this._providers?.values() ?? [])
             this._stopPet(provider);
         if (this._card) {
-            if (this._desktopLayer === Main.layoutManager)
+            if (this._desktopLayer === Main.layoutManager) {
                 Main.layoutManager.removeChrome(this._card);
-            else if (this._desktopLayer)
+            } else if (this._desktopLayer) {
+                if (this._trackedChrome)
+                    Main.layoutManager.untrackChrome(this._card);
                 this._desktopLayer.remove_child(this._card);
+            }
             this._card.destroy();
         }
         this._card = null;
         this._menu = null;
         this._desktopLayer = null;
+        this._trackedChrome = false;
     }
 
     _addToDesktopLayer() {
@@ -134,6 +152,12 @@ export default class TokidachiExtension extends Extension {
         if (backgroundGroup) {
             backgroundGroup.add_child(this._card);
             this._desktopLayer = backgroundGroup;
+            // Being parented under the background group only makes the card
+            // render below windows; Mutter still needs an explicit input
+            // region registration or clicks fall through to whatever is
+            // beneath (the desktop), leaving the widget visible but dead.
+            Main.layoutManager.trackChrome(this._card, {affectsInputRegion: true});
+            this._trackedChrome = true;
             return;
         }
 
@@ -157,6 +181,7 @@ export default class TokidachiExtension extends Extension {
                 const requestedTheme = typeof config.theme === 'string'
                     ? config.theme.trim().toLowerCase() : '';
                 config.theme = THEME_ALIASES.get(requestedTheme) ?? DEFAULT_CONFIG.theme;
+                config.language = normalizeLanguageSelection(config.language);
                 return config;
             }
         } catch (error) {
@@ -174,13 +199,14 @@ export default class TokidachiExtension extends Extension {
                     ...DEFAULT_STATE,
                     minimized: state.minimized === true,
                     theme: THEME_ALIASES.get(state.theme) ?? this._config.theme,
+                    language: normalizeLanguageSelection(state.language ?? this._config.language),
                 };
             }
         } catch (error) {
             if (!error.matches?.(GLib.FileError, GLib.FileError.NOENT))
                 console.warn(`[Tokidachi] Invalid user state: ${error.message}`);
         }
-        return {...DEFAULT_STATE, theme: this._config.theme};
+        return {...DEFAULT_STATE, theme: this._config.theme, language: this._config.language};
     }
 
     _writeState() {
@@ -274,17 +300,17 @@ export default class TokidachiExtension extends Extension {
         header.reactive = true;
         header.track_hover = true;
         header.connect('button-press-event', (_actor, event) => this._onHeaderButtonPress(event));
-        const title = label('AI Usage', 'ai-usage-title');
-        this._updated = label('Updating…', 'ai-usage-updated');
+        const title = label('Tokidachi', 'ai-usage-title');
+        this._updated = label(this._t('updating'), 'ai-usage-updated');
         header.add_child(title);
         header.add_child(new St.Widget({x_expand: true}));
         header.add_child(this._updated);
         this._refreshButton = iconButton('view-refresh-symbolic',
-            'ai-usage-window-button', 'Refresh usage now');
+            'ai-usage-window-button', this._t('refreshNow'));
         this._refreshButton.connect('clicked', () => this._refresh());
         header.add_child(this._refreshButton);
         this._minimizeButton = iconButton('window-minimize-symbolic',
-            'ai-usage-window-button', 'Minimize Tokidachi');
+            'ai-usage-window-button', this._t('minimize'));
         this._minimizeButton.connect('clicked', () => this._setMinimized(true));
         header.add_child(this._minimizeButton);
         this._expandedView.add_child(header);
@@ -295,7 +321,7 @@ export default class TokidachiExtension extends Extension {
         this._card.add_child(this._expandedView);
 
         this._restoreButton = iconButton('window-restore-symbolic',
-            'ai-usage-restore-button', 'Restore Tokidachi');
+            'ai-usage-restore-button', this._t('restore'));
         this._restoreButton.connect('clicked', () => this._setMinimized(false));
         this._card.add_child(this._restoreButton);
 
@@ -309,22 +335,36 @@ export default class TokidachiExtension extends Extension {
         this._menu.reactive = true;
 
         const themeRow = box(false, 'ai-usage-menu-row');
-        themeRow.add_child(label('Theme:', 'ai-usage-menu-label'));
+        this._themeLabel = label(this._t('theme'), 'ai-usage-menu-label');
+        themeRow.add_child(this._themeLabel);
         themeRow.add_child(new St.Widget({x_expand: true}));
-        this._themeValue = label(THEME_LABELS.get(this._state.theme), 'ai-usage-menu-value');
+        this._themeValue = label(this._themeName(), 'ai-usage-menu-value');
         themeRow.add_child(this._themeValue);
         const themeButton = new St.Button({style_class: 'ai-usage-menu-item', can_focus: false});
         themeButton.set_child(themeRow);
         themeButton.connect('clicked', () => this._cycleTheme());
         this._menu.add_child(themeButton);
 
+        const languageRow = box(false, 'ai-usage-menu-row');
+        this._languageLabel = label(this._t('language'), 'ai-usage-menu-label');
+        languageRow.add_child(this._languageLabel);
+        languageRow.add_child(new St.Widget({x_expand: true}));
+        this._languageValue = label(this._languageName(), 'ai-usage-menu-value');
+        languageRow.add_child(this._languageValue);
+        const languageButton = new St.Button({style_class: 'ai-usage-menu-item', can_focus: false});
+        languageButton.set_child(languageRow);
+        languageButton.connect('clicked', () => this._cycleLanguage());
+        this._menu.add_child(languageButton);
+
         const resetButton = new St.Button({style_class: 'ai-usage-menu-item', can_focus: false});
-        resetButton.set_child(label('Reset position and size', 'ai-usage-menu-label'));
+        this._resetLabel = label(this._t('resetLayout'), 'ai-usage-menu-label');
+        resetButton.set_child(this._resetLabel);
         resetButton.connect('clicked', () => this._resetLayout());
         this._menu.add_child(resetButton);
 
         const refreshButton = new St.Button({style_class: 'ai-usage-menu-item', can_focus: false});
-        refreshButton.set_child(label('Refresh usage now', 'ai-usage-menu-label'));
+        this._refreshMenuLabel = label(this._t('refreshNow'), 'ai-usage-menu-label');
+        refreshButton.set_child(this._refreshMenuLabel);
         refreshButton.connect('clicked', () => {
             this._closeMenu();
             this._refresh();
@@ -334,14 +374,53 @@ export default class TokidachiExtension extends Extension {
         this._card.add_child(this._menu);
     }
 
+    _t(key, values = {}) {
+        return translate(this._language, key, values);
+    }
+
+    _themeName() {
+        return this._t(THEME_MESSAGE_KEYS.get(this._state.theme));
+    }
+
+    _languageName() {
+        return this._t(LANGUAGE_MESSAGE_KEYS.get(this._state.language));
+    }
+
     _cycleTheme() {
         const index = THEME_ORDER.indexOf(this._state.theme);
         const next = THEME_ORDER[(index + 1) % THEME_ORDER.length];
         this._state.theme = next;
         this._card.remove_style_class_name(`theme-${THEME_ORDER[index]}`);
         this._card.add_style_class_name(`theme-${next}`);
-        this._themeValue.text = THEME_LABELS.get(next);
+        this._themeValue.text = this._themeName();
         this._writeState();
+    }
+
+    _cycleLanguage() {
+        const index = LANGUAGE_SELECTIONS.indexOf(this._state.language);
+        this._state.language = LANGUAGE_SELECTIONS[(index + 1) % LANGUAGE_SELECTIONS.length];
+        this._language = resolveLanguage(this._state.language, GLib.get_language_names());
+        this._writeState();
+        this._applyLanguage();
+    }
+
+    _applyLanguage() {
+        this._themeLabel.text = this._t('theme');
+        this._themeValue.text = this._themeName();
+        this._languageLabel.text = this._t('language');
+        this._languageValue.text = this._languageName();
+        this._resetLabel.text = this._t('resetLayout');
+        this._refreshMenuLabel.text = this._t('refreshNow');
+        this._refreshButton.accessible_name = this._t('refreshNow');
+        this._minimizeButton.accessible_name = this._t('minimize');
+        this._restoreButton.accessible_name = this._t('restore');
+
+        if (this._lastFailureMessage !== null && this._lastFailureMessage !== undefined)
+            this._renderFailure(this._lastFailureMessage);
+        else if (this._lastUsageData)
+            this._render(this._lastUsageData);
+        else
+            this._updated.text = this._t('updating');
     }
 
     _resetLayout() {
@@ -380,7 +459,7 @@ export default class TokidachiExtension extends Extension {
         heading.add_child(nameLabel);
         heading.add_child(new St.Widget({x_expand: true}));
         const status = new St.Widget({style_class: 'ai-usage-status-dot'});
-        const statusLabel = label('Waiting', 'ai-usage-provider-status');
+        const statusLabel = label(this._t('waiting'), 'ai-usage-provider-status');
         heading.add_child(status);
         heading.add_child(statusLabel);
         container.add_child(heading);
@@ -599,7 +678,8 @@ export default class TokidachiExtension extends Extension {
     _refresh() {
         if (this._process)
             return;
-        this._updated.text = 'Updating…';
+        this._lastFailureMessage = null;
+        this._updated.text = this._t('updating');
 
         try {
             this._process = Gio.Subprocess.new(
@@ -625,6 +705,8 @@ export default class TokidachiExtension extends Extension {
     }
 
     _render(data) {
+        this._lastUsageData = data;
+        this._lastFailureMessage = null;
         const current = new Set();
         let visibleProviders = 0;
         for (const [name, provider] of providerEntries(data)) {
@@ -656,7 +738,9 @@ export default class TokidachiExtension extends Extension {
         this._hasVisibleProviders = visibleProviders > 0;
         this._syncPresentation();
         const time = new Date((data.updatedAt ?? Date.now() / 1000) * 1000);
-        this._updated.text = 'Updated ' + time.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+        const formattedTime = time.toLocaleTimeString(this._language,
+            {hour: '2-digit', minute: '2-digit'});
+        this._updated.text = this._t('updated', {time: formattedTime});
         this._placeWidget();
     }
 
@@ -673,14 +757,15 @@ export default class TokidachiExtension extends Extension {
             ? 'ok' : provider.status === 'stale' ? 'stale' : 'attention';
         view.status.style_class = `ai-usage-status-dot ${status}`;
         view.statusLabel.text = status === 'ok'
-            ? 'Connected' : status === 'stale' ? 'Cached' : 'Needs attention';
+            ? this._t('connected')
+            : status === 'stale' ? this._t('cached') : this._t('needsAttention');
         view.animationState = animationState(provider);
 
         for (const window of windows)
             view.rows.add_child(this._makeUsageRow(window, view.color));
 
         if (windows.length === 0) {
-            view.rows.add_child(label(provider.message || 'No usage window available',
+            view.rows.add_child(label(provider.message || this._t('noUsageWindow'),
                 'ai-usage-error'));
         }
         return true;
@@ -715,7 +800,8 @@ export default class TokidachiExtension extends Extension {
 
     _renderFailure(message) {
         const safeMessage = String(message).slice(0, 120);
-        this._updated.text = 'Offline';
+        this._lastFailureMessage = safeMessage;
+        this._updated.text = this._t('offline');
         let visibleProviders = 0;
         for (const provider of this._providers.values()) {
             if (!provider.container.visible)
@@ -724,7 +810,7 @@ export default class TokidachiExtension extends Extension {
             provider.rows.destroy_all_children();
             provider.rows.add_child(label(safeMessage, 'ai-usage-error'));
             provider.status.style_class = 'ai-usage-status-dot attention';
-            provider.statusLabel.text = 'Needs attention';
+            provider.statusLabel.text = this._t('needsAttention');
             provider.animationState = 'attention';
         }
         this._syncDividers();
