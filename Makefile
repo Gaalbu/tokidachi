@@ -6,6 +6,7 @@ NATIVE := target/ai-usage-widget
 test:
 	mvn test
 	node --check $(UUID)/extension.js
+	node --experimental-default-type=module --test tests/provider-model.test.js
 	bash -n scripts/install.sh scripts/uninstall.sh scripts/package.sh
 
 jar:

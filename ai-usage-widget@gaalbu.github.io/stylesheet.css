@@ -205,18 +205,6 @@
   background-color: #89b4fa;
 }
 
-.ai-usage-bar-fill.claude {
-  background-color: #fab387;
-}
-
-.theme-light .ai-usage-bar-fill {
-  background-color: #1e66f5;
-}
-
-.theme-light .ai-usage-bar-fill.claude {
-  background-color: #fe640b;
-}
-
 .ai-usage-error {
   margin-top: 6px;
   font-size: 10px;
