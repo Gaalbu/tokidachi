@@ -16,6 +16,16 @@ and pick a theme, all with the mouse.
 ![GNOME](https://img.shields.io/badge/GNOME-45--48-4A86CF?logo=gnome&logoColor=white)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
+![Tokidachi Companions reacting to usage](docs/assets/tokidachi-companions.gif)
+
+### Tokidachi Companions
+
+The provider mascots are the widget's signature: one coherent family of
+original, local-only characters whose mood makes quota pressure visible at a
+glance. They stay calm during normal use, become restless above 80%, and call
+attention to authentication or collector errors. Motion can be disabled
+without hiding them.
+
 ## What it shows
 
 - Claude's 5-hour and 7-day utilization, plus reset times when available.
@@ -217,6 +227,11 @@ Mascot SVGs ship inside the extension and are never downloaded at runtime.
 They use original abstract shapes rather than third-party logos. Metadata is
 validated by the extension before it is used as an inline color or local asset
 path.
+
+The project is considering the name **Tokidachi** for a separate future brand
+migration. This PR does not rename the repository, extension UUID, collector,
+or release artifacts; see the [rename checklist](docs/tokidachi-rename-checklist.md)
+for the compatibility work that decision requires.
 
 Codex is queried with `ProcessBuilder` through the documented local
 `codex app-server --stdio` JSON-RPC method `account/rateLimits/read`. The
