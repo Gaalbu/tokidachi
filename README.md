@@ -24,6 +24,17 @@ and pick a theme, all with the mouse.
   vice versa.
 - Only providers that are actually configured. If neither is configured, the
   card remains hidden.
+- A small local mascot for each provider. Its motion reflects normal, high-use,
+  and attention states and stops while the widget is minimized.
+
+The collector registry and widget rendering support any number of providers,
+but this release has quota integrations for Claude Code and Codex only.
+Gemini CLI is intentionally not included: its official documentation exposes
+quota in the interactive [`/stats model`](https://github.com/google-gemini/gemini-cli/blob/main/docs/reference/commands.md#stats)
+view, but does not document a stable headless command or public quota API that
+the collector can safely consume. DeepSeek is also excluded because its API is
+[usage-priced and balance-based](https://api-docs.deepseek.com/api/get-user-balance/),
+not a subscription window comparable to the 5-hour/7-day bars shown here.
 
 The widget refreshes every five minutes by default. A sanitized usage-only
 cache is kept for up to 30 minutes so a temporary failure does not blank a
@@ -163,14 +174,16 @@ Available values:
   "minScale": 0.65,
   "maxScale": 1.75,
   "scaleStep": 0.1,
-  "theme": "dark"
+  "theme": "dark",
+  "petAnimations": true
 }
 ```
 
 `position` accepts `top-right`, `top-left`, `bottom-right`, or `bottom-left`,
 and only applies until the widget is first dragged. `theme` accepts `dark`,
-`light`, or `glass`. Disable and re-enable the extension after changing the
-file.
+`light`, or `glass`. Set `petAnimations` to `false` to disable all mascot
+motion; the pets remain visible as static icons. Disable and re-enable the
+extension after changing the file.
 
 ## Collector architecture and privacy
 
@@ -182,15 +195,28 @@ Jackson's tree model to preserve the JSON contract consumed by `extension.js`:
   "version": 1,
   "updatedAt": 2000000000,
   "providers": {
-    "claude": {"status": "ok", "configured": true, "windows": []},
-    "codex": {"status": "error", "configured": false, "message": "...", "windows": []}
+    "claude": {
+      "displayName": "Claude",
+      "color": "#d97757",
+      "pet": "pets/claude.svg",
+      "status": "ok",
+      "configured": true,
+      "windows": []
+    }
   }
 }
 ```
 
-`configured` is an additive field used only to hide unavailable provider
-sections; `version`, `updatedAt`, `providers`, `status`, `message`, and
-`windows` retain their previous shape.
+`displayName`, `color`, and `pet` are additive presentation metadata. The
+protocol remains at version 1 because existing fields and provider payloads
+retain their shape; older consumers can ignore the new fields. Provider order
+comes from the registry in `ProviderRegistry.java`, and the extension creates
+sections and dividers directly from the keys returned in `providers`.
+
+Mascot SVGs ship inside the extension and are never downloaded at runtime.
+They use original abstract shapes rather than third-party logos. Metadata is
+validated by the extension before it is used as an inline color or local asset
+path.
 
 Codex is queried with `ProcessBuilder` through the documented local
 `codex app-server --stdio` JSON-RPC method `account/rateLimits/read`. The
@@ -209,10 +235,12 @@ usage windows and timestamps, use mode `0600`, and live under
 make test
 ```
 
-The unit suite covers Claude and Codex parsing, percentage clamping,
-independent provider failures, cache expiry, timestamp preservation, private
-cache permissions, and symlink rejection. CI also builds and smoke-tests both
-the executable JAR and the GraalVM native executable.
+The unit suite covers Claude and Codex parsing, the provider registry and UI
+metadata normalization, percentage clamping, independent provider failures,
+cache expiry, timestamp preservation, private cache permissions, and symlink
+rejection. CI also builds and smoke-tests both the executable JAR and the
+GraalVM native executable. Mascot rendering and Clutter motion require a live
+GNOME Shell session and are validated manually.
 
 ## Troubleshooting
 
