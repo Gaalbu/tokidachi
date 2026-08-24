@@ -7,7 +7,6 @@ import java.net.http.HttpClient;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
-import java.util.List;
 import java.util.Map;
 
 public final class CollectorApp {
@@ -26,9 +25,7 @@ public final class CollectorApp {
                 mapper,
                 clock,
                 new CacheStore(mapper, cache),
-                List.of(
-                        new ClaudeProvider(mapper, httpClient, clock, environment),
-                        new CodexProvider(mapper, clock, environment)));
+                ProviderRegistry.create(mapper, httpClient, clock, environment));
         ObjectNode result = service.collectAll();
         boolean pretty = args.length == 1 && "--pretty".equals(args[0]);
         String output = pretty

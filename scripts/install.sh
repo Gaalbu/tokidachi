@@ -7,7 +7,7 @@ readonly PROJECT_DIR="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 readonly SOURCE_DIR="$PROJECT_DIR/$UUID"
 readonly DEST_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/gnome-shell/extensions/$UUID"
 readonly BACKUP_ROOT="${XDG_STATE_HOME:-$HOME/.local/state}/ai-usage-widget/backups"
-readonly EXTENSION_FILES=(metadata.json extension.js stylesheet.css config.json)
+readonly EXTENSION_FILES=(metadata.json extension.js providerModel.js stylesheet.css config.json)
 
 enable_extension() {
     if gnome-extensions enable "$UUID" 2>/dev/null; then
@@ -57,6 +57,7 @@ for file in "${EXTENSION_FILES[@]}"; do
     cp -a -- "$SOURCE_DIR/$file" "$DEST_DIR/$file"
     chmod 644 "$DEST_DIR/$file"
 done
+cp -a -- "$SOURCE_DIR/pets" "$DEST_DIR/pets"
 cp -a -- "$collector_source" "$DEST_DIR/collector"
 chmod 700 "$DEST_DIR/collector"
 

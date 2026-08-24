@@ -113,6 +113,11 @@
   margin-bottom: 6px;
 }
 
+.ai-usage-pet {
+  icon-size: 22px;
+  margin-right: 7px;
+}
+
 .ai-usage-provider-name {
   font-size: 12px;
   font-weight: 700;
@@ -205,18 +210,6 @@
   background-color: #89b4fa;
 }
 
-.ai-usage-bar-fill.claude {
-  background-color: #fab387;
-}
-
-.theme-light .ai-usage-bar-fill {
-  background-color: #1e66f5;
-}
-
-.theme-light .ai-usage-bar-fill.claude {
-  background-color: #fe640b;
-}
-
 .ai-usage-error {
   margin-top: 6px;
   font-size: 10px;
@@ -282,8 +275,12 @@
   font-size: 11px;
   font-weight: 700;
   color: #89b4fa;
+  background-color: rgba(137, 180, 250, 0.14);
+  border-radius: 999px;
+  padding: 2px 7px;
 }
 
 .theme-light .ai-usage-menu-value {
   color: #1e66f5;
+  background-color: rgba(30, 102, 245, 0.12);
 }
