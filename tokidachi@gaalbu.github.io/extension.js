@@ -61,14 +61,14 @@ function iconButton(iconName, styleClass, accessibleName) {
     return button;
 }
 
-export default class AiUsageWidgetExtension extends Extension {
+export default class TokidachiExtension extends Extension {
     enable() {
         this._config = this._readConfig();
         this._layoutStatePath = GLib.build_filenamev([
-            GLib.get_user_config_dir(), 'ai-usage-widget', 'layout.json',
+            GLib.get_user_config_dir(), 'tokidachi', 'layout.json',
         ]);
         this._uiStatePath = GLib.build_filenamev([
-            GLib.get_user_config_dir(), 'ai-usage-widget', 'state.json',
+            GLib.get_user_config_dir(), 'tokidachi', 'state.json',
         ]);
         this._layoutState = this._readLayoutState();
         this._state = this._readState();
@@ -160,7 +160,7 @@ export default class AiUsageWidgetExtension extends Extension {
                 return config;
             }
         } catch (error) {
-            console.warn(`[AI Usage Widget] Invalid config.json: ${error.message}`);
+            console.warn(`[Tokidachi] Invalid config.json: ${error.message}`);
         }
         return {...DEFAULT_CONFIG};
     }
@@ -178,7 +178,7 @@ export default class AiUsageWidgetExtension extends Extension {
             }
         } catch (error) {
             if (!error.matches?.(GLib.FileError, GLib.FileError.NOENT))
-                console.warn(`[AI Usage Widget] Invalid user state: ${error.message}`);
+                console.warn(`[Tokidachi] Invalid user state: ${error.message}`);
         }
         return {...DEFAULT_STATE, theme: this._config.theme};
     }
@@ -192,7 +192,7 @@ export default class AiUsageWidgetExtension extends Extension {
             GLib.file_set_contents(this._uiStatePath, contents);
             GLib.chmod(this._uiStatePath, 0o600);
         } catch (error) {
-            console.warn(`[AI Usage Widget] Could not save user state: ${error.message}`);
+            console.warn(`[Tokidachi] Could not save user state: ${error.message}`);
         }
     }
 
@@ -214,7 +214,7 @@ export default class AiUsageWidgetExtension extends Extension {
                     : fallback.scale,
             };
         } catch (error) {
-            console.warn(`[AI Usage Widget] Invalid layout state: ${error.message}`);
+            console.warn(`[Tokidachi] Invalid layout state: ${error.message}`);
             return fallback;
         }
     }
@@ -244,7 +244,7 @@ export default class AiUsageWidgetExtension extends Extension {
             GLib.file_set_contents(this._layoutStatePath, `${contents}\n`);
             GLib.chmod(this._layoutStatePath, 0o600);
         } catch (error) {
-            console.warn(`[AI Usage Widget] Cannot save layout state: ${error.message}`);
+            console.warn(`[Tokidachi] Cannot save layout state: ${error.message}`);
         }
     }
 
@@ -284,7 +284,7 @@ export default class AiUsageWidgetExtension extends Extension {
         this._refreshButton.connect('clicked', () => this._refresh());
         header.add_child(this._refreshButton);
         this._minimizeButton = iconButton('window-minimize-symbolic',
-            'ai-usage-window-button', 'Minimize AI usage widget');
+            'ai-usage-window-button', 'Minimize Tokidachi');
         this._minimizeButton.connect('clicked', () => this._setMinimized(true));
         header.add_child(this._minimizeButton);
         this._expandedView.add_child(header);
@@ -295,7 +295,7 @@ export default class AiUsageWidgetExtension extends Extension {
         this._card.add_child(this._expandedView);
 
         this._restoreButton = iconButton('window-restore-symbolic',
-            'ai-usage-restore-button', 'Restore AI usage widget');
+            'ai-usage-restore-button', 'Restore Tokidachi');
         this._restoreButton.connect('clicked', () => this._setMinimized(false));
         this._card.add_child(this._restoreButton);
 

@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-readonly UUID='ai-usage-widget@gaalbu.github.io'
+readonly UUID='tokidachi@gaalbu.github.io'
 readonly SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 readonly PROJECT_DIR="$(cd -- "$SCRIPT_DIR/.." && pwd)"
-readonly COLLECTOR="${1:-$PROJECT_DIR/target/ai-usage-widget}"
+readonly COLLECTOR="${1:-$PROJECT_DIR/target/tokidachi}"
 readonly STAGE_ROOT="$PROJECT_DIR/build/release"
 readonly EXTENSION_STAGE="$STAGE_ROOT/$UUID"
 readonly DIST_DIR="$PROJECT_DIR/dist"
@@ -28,7 +28,7 @@ install -m 0755 "$PROJECT_DIR/scripts/uninstall.sh" "$STAGE_ROOT/scripts/uninsta
     cd "$EXTENSION_STAGE"
     zip -q -r "$DIST_DIR/$UUID.shell-extension.zip" .
 )
-tar -C "$STAGE_ROOT" -czf "$DIST_DIR/ai-usage-widget-linux-x86_64.tar.gz" "$UUID" scripts
+tar -C "$STAGE_ROOT" -czf "$DIST_DIR/tokidachi-linux-x86_64.tar.gz" "$UUID" scripts
 printf 'Created:\n  %s\n  %s\n' \
     "$DIST_DIR/$UUID.shell-extension.zip" \
-    "$DIST_DIR/ai-usage-widget-linux-x86_64.tar.gz"
+    "$DIST_DIR/tokidachi-linux-x86_64.tar.gz"

@@ -1,4 +1,4 @@
-package io.github.gaalbu.aiusagewidget;
+package io.github.gaalbu.tokidachi;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -39,6 +39,6 @@ public final class CollectorApp {
         if (root == null || root.isBlank()) {
             root = Path.of(environment.getOrDefault("HOME", System.getProperty("user.home")), ".cache").toString();
         }
-        return Path.of(root, "ai-usage-widget", "usage.json");
+        return Path.of(root, "tokidachi", "usage.json");
     }
 }

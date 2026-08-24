@@ -1,4 +1,4 @@
-package io.github.gaalbu.aiusagewidget;
+package io.github.gaalbu.tokidachi;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -50,7 +50,7 @@ final class ClaudeProvider implements UsageProvider {
                 .timeout(Duration.ofSeconds(15))
                 .header("Authorization", "Bearer " + token)
                 .header("anthropic-beta", BETA)
-                .header("User-Agent", "ai-usage-widget/0.2.0")
+                .header("User-Agent", "tokidachi/0.3.0")
                 .GET()
                 .build();
         try {

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import {animationState, providerEntries, providerVisuals} from '../ai-usage-widget@gaalbu.github.io/providerModel.js';
+import {animationState, providerEntries, providerVisuals} from '../tokidachi@gaalbu.github.io/providerModel.js';
 
 test('providerEntries keeps every collector provider in protocol order', () => {
     const data = {providers: {
