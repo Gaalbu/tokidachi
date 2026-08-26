@@ -25,7 +25,11 @@ jobs:
           HOME: ${{ runner.temp }}/empty-home
           XDG_CACHE_HOME: ${{ runner.temp }}/cache
       - run: ./scripts/package.sh target/tokidachi
-      - run: cp target/tokidachi-0.3.0-all.jar dist/
+      - name: Copy shaded JAR
+        run: |
+          jar_path=$(find target -maxdepth 1 -type f -name 'tokidachi-*-all.jar' -print -quit)
+          test -n "$jar_path"
+          cp "$jar_path" dist/
       - run: cd dist && sha256sum * > SHA256SUMS
       - uses: softprops/action-gh-release@v3
         with:
@@ -33,5 +37,5 @@ jobs:
           files: |
             dist/tokidachi-linux-x86_64.tar.gz
             dist/tokidachi@gaalbu.github.io.shell-extension.zip
-            dist/tokidachi-0.3.0-all.jar
+            dist/tokidachi-*-all.jar
             dist/SHA256SUMS

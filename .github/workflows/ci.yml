@@ -29,7 +29,11 @@ jobs:
           node-version: '22'
       - run: make test
       - run: mvn --batch-mode package
-      - run: java -jar target/tokidachi-0.3.0-all.jar --pretty
+      - name: Smoke-test shaded JAR
+        run: |
+          jar_path=$(find target -maxdepth 1 -type f -name 'tokidachi-*-all.jar' -print -quit)
+          test -n "$jar_path"
+          java -jar "$jar_path" --pretty
         env:
           HOME: ${{ runner.temp }}/empty-home
           XDG_CACHE_HOME: ${{ runner.temp }}/cache
