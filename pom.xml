@@ -6,7 +6,7 @@
 
   <groupId>io.github.gaalbu</groupId>
   <artifactId>tokidachi</artifactId>
-  <version>0.3.0</version>
+  <version>0.3.1</version>
   <name>Tokidachi collector</name>
 
   <properties>

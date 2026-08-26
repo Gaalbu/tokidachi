@@ -12,7 +12,12 @@ import {
     resolveLanguage,
     translate,
 } from './i18n.js';
-import {animationState, providerEntries, providerVisuals} from './providerModel.js';
+import {
+    animationState,
+    providerEntries,
+    providerNotices,
+    providerVisuals,
+} from './providerModel.js';
 
 const DEFAULT_CONFIG = {
     refreshSeconds: 300,
@@ -763,6 +768,14 @@ export default class TokidachiExtension extends Extension {
 
         for (const window of windows)
             view.rows.add_child(this._makeUsageRow(window, view.color));
+
+        for (const notice of providerNotices(provider))
+            view.rows.add_child(label(notice, 'ai-usage-provider-status'));
+
+        if (windows.length > 0 && provider.message) {
+            view.rows.add_child(label(String(provider.message).slice(0, 120),
+                'ai-usage-error'));
+        }
 
         if (windows.length === 0) {
             view.rows.add_child(label(provider.message || this._t('noUsageWindow'),

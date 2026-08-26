@@ -95,6 +95,9 @@ final class CacheStore {
         ObjectNode result = mapper.createObjectNode();
         result.put("cachedAt", cachedAt);
         result.set("windows", windows.deepCopy());
+        JsonNode notices = previous.path("notices");
+        result.set("notices", notices.isArray()
+                ? notices.deepCopy() : mapper.createArrayNode());
         return result;
     }
 

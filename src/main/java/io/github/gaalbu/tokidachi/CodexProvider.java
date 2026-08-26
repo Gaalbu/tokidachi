@@ -2,7 +2,6 @@ package io.github.gaalbu.tokidachi;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.io.BufferedReader;
@@ -67,14 +66,13 @@ final class CodexProvider implements UsageProvider {
             if (response.hasNonNull("error")) {
                 throw new ProviderException("Codex rejected the usage request; run `codex login`", false);
             }
-            ArrayNode windows = UsageParsers.parseCodex(response.path("result"), clock);
-            if (windows.isEmpty()) {
+            ObjectNode result = UsageParsers.parseCodexUsage(response.path("result"), clock);
+            if (result.path("windows").isEmpty()
+                    && result.path("notices").isEmpty()
+                    && !result.hasNonNull("message")) {
                 throw new ProviderException("Codex returned no usage windows", true);
             }
-            ObjectNode result = mapper.createObjectNode();
-            result.put("status", "ok");
             result.put("configured", true);
-            result.set("windows", windows);
             return result;
         } finally {
             stop(process);
@@ -88,7 +86,7 @@ final class CodexProvider implements UsageProvider {
         ObjectNode clientInfo = initialize.putObject("params").putObject("clientInfo");
         clientInfo.put("name", "tokidachi");
         clientInfo.put("title", "Tokidachi");
-        clientInfo.put("version", "0.3.0");
+        clientInfo.put("version", "0.3.1");
 
         ObjectNode initialized = mapper.createObjectNode();
         initialized.put("method", "initialized");

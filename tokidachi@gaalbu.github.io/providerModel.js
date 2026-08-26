@@ -32,6 +32,15 @@ export function animationState(provider) {
     return highestUsage > 80 ? 'high' : 'idle';
 }
 
+export function providerNotices(provider) {
+    if (!Array.isArray(provider?.notices))
+        return [];
+    return provider.notices
+        .filter(notice => typeof notice === 'string' && notice.trim().length > 0)
+        .slice(0, 2)
+        .map(notice => notice.trim().slice(0, 80));
+}
+
 function fallbackColor(name) {
     let hash = 0;
     for (const character of name)
