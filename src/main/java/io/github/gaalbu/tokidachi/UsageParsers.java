@@ -12,6 +12,7 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -45,10 +46,14 @@ final class UsageParsers {
     }
 
     static ArrayNode parseCodex(JsonNode payload, Clock clock) {
+        return (ArrayNode) parseCodexUsage(payload, clock).path("windows");
+    }
+
+    static ObjectNode parseCodexUsage(JsonNode payload, Clock clock) {
         JsonNode buckets = payload.path("rateLimitsByLimitId");
         ObjectNode normalized = JsonNodeFactory.instance.objectNode();
         if (buckets.isObject() && !buckets.isEmpty()) {
-            buckets.fields().forEachRemaining(entry -> normalized.set(entry.getKey(), entry.getValue()));
+            buckets.properties().forEach(entry -> normalized.set(entry.getKey(), entry.getValue()));
         } else {
             JsonNode fallback = payload.path("rateLimits");
             if (fallback.isObject()) {
@@ -56,15 +61,29 @@ final class UsageParsers {
             }
         }
 
-        ArrayNode windows = JsonNodeFactory.instance.arrayNode();
-        normalized.fields().forEachRemaining(entry -> {
+        ObjectNode result = JsonNodeFactory.instance.objectNode();
+        ArrayNode windows = result.putArray("windows");
+        ArrayNode notices = result.putArray("notices");
+        result.put("status", "ok");
+        var bucketEntries = new ArrayList<>(normalized.properties());
+        bucketEntries.sort((left, right) -> {
+            boolean leftIsCodex = left.getKey().equals("codex");
+            boolean rightIsCodex = right.getKey().equals("codex");
+            if (leftIsCodex != rightIsCodex) {
+                return leftIsCodex ? -1 : 1;
+            }
+            return left.getKey().compareTo(right.getKey());
+        });
+        bucketEntries.forEach(entry -> {
             String bucketName = entry.getKey();
             JsonNode bucket = entry.getValue();
             if (!bucket.isObject()) {
                 return;
             }
-            String displayName = bucket.path("limitName").asText();
-            if (displayName.isBlank()) {
+            JsonNode limitName = bucket.get("limitName");
+            String displayName = limitName != null && limitName.isTextual()
+                    ? limitName.asText().trim() : "";
+            if (displayName.isEmpty()) {
                 displayName = bucketName.equals("codex") ? "Codex" : bucketName;
             }
             for (String windowName : new String[]{"primary", "secondary"}) {
@@ -81,8 +100,52 @@ final class UsageParsers {
                     windows.add(window);
                 }
             }
+            ObjectNode individual = individualLimit(displayName, bucket.path("individualLimit"),
+                    normalized.size() > 1, clock);
+            if (individual != null) {
+                windows.add(individual);
+            }
+            String reachedMessage = reachedMessage(bucket.path("rateLimitReachedType").asText());
+            if (reachedMessage == null && bucket.path("spendControlReached").asBoolean(false)) {
+                reachedMessage = "Individual spend limit reached";
+            }
+            if (reachedMessage != null) {
+                result.put("status", "attention");
+                result.put("message", reachedMessage);
+            }
         });
-        return windows;
+        JsonNode resetCount = payload.path("rateLimitResetCredits").path("availableCount");
+        if (resetCount.canConvertToInt() && resetCount.asInt() > 0) {
+            int count = resetCount.asInt();
+            notices.add(count + (count == 1
+                    ? " rate-limit reset available" : " rate-limit resets available"));
+        }
+        return result;
+    }
+
+    private static ObjectNode individualLimit(
+            String displayName, JsonNode value, boolean qualifyLabel, Clock clock) {
+        if (!value.isObject()) {
+            return null;
+        }
+        JsonNode remaining = value.get("remainingPercent");
+        if (remaining == null || !remaining.isNumber()) {
+            return null;
+        }
+        double used = 100.0 - remaining.asDouble();
+        String label = qualifyLabel ? displayName + " · Individual limit" : "Individual limit";
+        return window(label, JsonNodeFactory.instance.numberNode(used), value.get("resetsAt"), clock);
+    }
+
+    private static String reachedMessage(String type) {
+        return switch (type) {
+            case "rate_limit_reached" -> "Codex usage limit reached";
+            case "workspace_owner_credits_depleted", "workspace_member_credits_depleted" ->
+                    "Workspace credits are depleted";
+            case "workspace_owner_usage_limit_reached", "workspace_member_usage_limit_reached" ->
+                    "Workspace usage limit reached";
+            default -> null;
+        };
     }
 
     static ObjectNode window(String label, JsonNode used, JsonNode reset, Clock clock) {

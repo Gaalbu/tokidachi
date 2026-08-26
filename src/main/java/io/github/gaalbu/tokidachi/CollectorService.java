@@ -32,7 +32,7 @@ final class CollectorService {
             try {
                 ObjectNode current = provider.collect();
                 providerResults.set(provider.name(), withMetadata(provider, current));
-                cacheProviders.set(provider.name(), cacheEntry(now, current.path("windows")));
+                cacheProviders.set(provider.name(), cacheEntry(now, current));
             } catch (ProviderException error) {
                 providerResults.set(provider.name(), withMetadata(
                         provider, failure(error.getMessage(), error.configured(), previous)));
@@ -68,14 +68,21 @@ final class CollectorService {
         result.put("message", message);
         result.set("windows", previous == null
                 ? mapper.createArrayNode() : previous.path("windows").deepCopy());
+        result.set("notices", previous == null
+                ? mapper.createArrayNode() : arrayCopy(previous.path("notices")));
         return result;
     }
 
-    private ObjectNode cacheEntry(long now, JsonNode windows) {
+    private ObjectNode cacheEntry(long now, ObjectNode provider) {
         ObjectNode result = mapper.createObjectNode();
         result.put("cachedAt", now);
-        result.set("windows", windows instanceof ArrayNode ? windows.deepCopy() : mapper.createArrayNode());
+        result.set("windows", arrayCopy(provider.path("windows")));
+        result.set("notices", arrayCopy(provider.path("notices")));
         return result;
+    }
+
+    private ArrayNode arrayCopy(JsonNode value) {
+        return value instanceof ArrayNode array ? array.deepCopy() : mapper.createArrayNode();
     }
 
     private ObjectNode withMetadata(UsageProvider provider, ObjectNode result) {

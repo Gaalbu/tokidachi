@@ -14,6 +14,7 @@ test('theme menu keeps its label distinct from the selected value', () => {
     assert.match(stylesheet, /\.ai-usage-menu-value\s*\{[^}]*background-color:/s);
     assert.match(stylesheet, /\.ai-usage-menu-value\s*\{[^}]*border-radius:/s);
     assert.match(stylesheet, /\.ai-usage-menu-value\s*\{[^}]*padding:/s);
+    assert.match(extension, /providerNotices\(provider\)/);
 });
 
 test('language selection is persisted, translated, and shipped with the extension', () => {

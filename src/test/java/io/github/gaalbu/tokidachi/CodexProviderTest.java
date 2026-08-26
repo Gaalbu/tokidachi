@@ -27,7 +27,7 @@ class CodexProviderTest {
                 #!/usr/bin/env bash
                 set -euo pipefail
                 head -n 3 >/dev/null
-                printf '%s\\n' '{"id":2,"result":{"rateLimitsByLimitId":{"codex":{"primary":{"usedPercent":12,"windowDurationMins":300,"resetsAt":1786237200},"secondary":{"usedPercent":31,"windowDurationMins":10080,"resetsAt":1786823146}}}}}'
+                printf '%s\\n' '{"id":2,"result":{"rateLimitsByLimitId":{"codex":{"limitName":null,"primary":{"usedPercent":12,"windowDurationMins":300,"resetsAt":1786237200},"secondary":{"usedPercent":31,"windowDurationMins":10080,"resetsAt":1786823146}}},"rateLimitResetCredits":{"availableCount":1,"credits":[]}}}'
                 """);
         Files.setPosixFilePermissions(command, PosixFilePermissions.fromString("rwx------"));
 
@@ -39,5 +39,25 @@ class CodexProviderTest {
         assertTrue(result.path("configured").asBoolean());
         assertEquals(2, result.path("windows").size());
         assertEquals(12.0, result.path("windows").get(0).path("usedPercent").asDouble());
+        assertEquals("1 rate-limit reset available", result.path("notices").get(0).asText());
+    }
+
+    @Test
+    void returnsReachedStateWhenCodexProvidesNoWindows() throws IOException, ProviderException {
+        Path command = temporary.resolve("codex-limit-reached");
+        Files.writeString(command, """
+                #!/usr/bin/env bash
+                set -euo pipefail
+                head -n 3 >/dev/null
+                printf '%s\\n' '{"id":2,"result":{"rateLimitsByLimitId":{"codex":{"primary":null,"secondary":null,"rateLimitReachedType":"rate_limit_reached"}}}}'
+                """);
+        Files.setPosixFilePermissions(command, PosixFilePermissions.fromString("rwx------"));
+
+        ObjectNode result = new CodexProvider(new ObjectMapper(), Clock.systemUTC(),
+                Map.of("CODEX_BIN", command.toString())).collect();
+
+        assertEquals("attention", result.path("status").asText());
+        assertEquals("Codex usage limit reached", result.path("message").asText());
+        assertTrue(result.path("windows").isEmpty());
     }
 }

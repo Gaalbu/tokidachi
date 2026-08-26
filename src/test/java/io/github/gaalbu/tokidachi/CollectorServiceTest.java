@@ -29,6 +29,7 @@ class CollectorServiceTest {
         ObjectNode claude = cached.putObject("providers").putObject("claude");
         claude.put("cachedAt", NOW - 60);
         claude.set("windows", windows());
+        claude.putArray("notices").add("1 rate-limit reset available");
         store.write(cached);
 
         ObjectNode result = new CollectorService(mapper, clock, store,
@@ -39,6 +40,8 @@ class CollectorServiceTest {
         assertEquals("Claude", result.path("providers").path("claude").path("displayName").asText());
         assertEquals("#d97757", result.path("providers").path("claude").path("color").asText());
         assertEquals("pets/claude.svg", result.path("providers").path("claude").path("pet").asText());
+        assertEquals("1 rate-limit reset available",
+                result.path("providers").path("claude").path("notices").get(0).asText());
         ObjectNode saved = store.read();
         assertEquals(NOW - 60, saved.path("providers").path("claude").path("cachedAt").asLong());
         assertEquals(NOW, saved.path("providers").path("codex").path("cachedAt").asLong());

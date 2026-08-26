@@ -2,7 +2,7 @@
   "uuid": "tokidachi@gaalbu.github.io",
   "name": "Tokidachi",
   "description": "A quiet desktop widget for Claude Code and Codex usage limits.",
-  "version": 4,
+  "version": 5,
   "shell-version": ["45", "46", "47", "48"],
   "url": "https://github.com/Gaalbu/tokidachi"
 }

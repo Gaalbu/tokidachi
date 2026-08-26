@@ -1,7 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import {animationState, providerEntries, providerVisuals} from '../tokidachi@gaalbu.github.io/providerModel.js';
+import {
+    animationState,
+    providerEntries,
+    providerNotices,
+    providerVisuals,
+} from '../tokidachi@gaalbu.github.io/providerModel.js';
 
 test('providerEntries keeps every collector provider in protocol order', () => {
     const data = {providers: {
@@ -41,4 +46,12 @@ test('animationState reflects attention and high usage', () => {
     assert.equal(animationState({status: 'error', windows: []}), 'attention');
     assert.equal(animationState({status: 'ok', windows: [{usedPercent: 81}]}), 'high');
     assert.equal(animationState({status: 'ok', windows: [{usedPercent: 80}]}), 'idle');
+});
+
+test('providerNotices accepts only bounded non-empty strings', () => {
+    const notices = providerNotices({
+        notices: ['  One reset available  ', '', 42, 'x'.repeat(100), 'ignored'],
+    });
+
+    assert.deepEqual(notices, ['One reset available', 'x'.repeat(80)]);
 });

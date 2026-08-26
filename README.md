@@ -35,7 +35,9 @@ without hiding them.
 ## What it shows
 
 - Claude's 5-hour and 7-day utilization, plus reset times when available.
-- Every limit window returned by the official Codex app-server.
+- Every limit window returned by the official Codex app-server, including
+  multiple metered buckets and individual spend controls.
+- Codex limit-state warnings and available rate-limit resets when reported.
 - Independent provider state: Claude can fail without affecting Codex, and
   vice versa.
 - Only providers that are actually configured. If neither is configured, the
@@ -146,7 +148,7 @@ make native
 Build outputs:
 
 - `mvn package` creates the executable
-  `target/tokidachi-0.3.0-all.jar`.
+  `target/tokidachi-0.3.1-all.jar`.
 - `mvn -Pnative package` creates `target/tokidachi`, the standalone
   Linux executable used by the extension.
 - `make package` creates the installable archives under `dist/`.
@@ -154,7 +156,7 @@ Build outputs:
 The JAR is useful for development and diagnostics:
 
 ```bash
-java -jar target/tokidachi-0.3.0-all.jar --pretty
+java -jar target/tokidachi-0.3.1-all.jar --pretty
 ```
 
 ## Interact and customize
@@ -228,17 +230,19 @@ Jackson's tree model to preserve the JSON contract consumed by `extension.js`:
       "pet": "pets/claude.svg",
       "status": "ok",
       "configured": true,
-      "windows": []
+      "windows": [],
+      "notices": []
     }
   }
 }
 ```
 
-`displayName`, `color`, and `pet` are additive presentation metadata. The
-protocol remains at version 1 because existing fields and provider payloads
-retain their shape; older consumers can ignore the new fields. Provider order
-comes from the registry in `ProviderRegistry.java`, and the extension creates
-sections and dividers directly from the keys returned in `providers`.
+`displayName`, `color`, `pet`, and `notices` are additive presentation
+metadata. The protocol remains at version 1 because existing fields and
+provider payloads retain their shape; older consumers can ignore the new
+fields. Provider order comes from the registry in `ProviderRegistry.java`, and
+the extension creates sections and dividers directly from the keys returned in
+`providers`.
 
 Mascot SVGs ship inside the extension and are never downloaded at runtime.
 They use original abstract shapes rather than third-party logos. Metadata is
@@ -251,7 +255,10 @@ extension identity and preserve local UI preferences.
 
 Codex is queried with `ProcessBuilder` through the documented local
 `codex app-server --stdio` JSON-RPC method `account/rateLimits/read`. The
-collector never opens Codex's auth file.
+collector never opens Codex's auth file. Both the historical single-bucket
+response and the current multi-bucket response are accepted. Unknown buckets
+are displayed without being hard-coded, while optional credit and spend-control
+fields are ignored safely when absent.
 
 Claude is queried with Java's native `HttpClient`. The collector reads only
 the OAuth access token from Claude Code's local credentials and sends it only

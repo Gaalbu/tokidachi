@@ -1,0 +1,38 @@
+{
+  "rateLimits": {
+    "limitId": "codex",
+    "limitName": null,
+    "primary": {"usedPercent": 57, "windowDurationMins": 300, "resetsAt": 1787772632},
+    "secondary": {"usedPercent": 10, "windowDurationMins": 10080, "resetsAt": 1788271979},
+    "credits": {"hasCredits": false, "unlimited": false, "balance": "0"},
+    "individualLimit": {"limit": "100", "remainingPercent": 25, "resetsAt": 1788370175, "used": "75"},
+    "spendControlReached": false,
+    "planType": "plus",
+    "rateLimitReachedType": null
+  },
+  "rateLimitsByLimitId": {
+    "base_model_inference": {
+      "limitId": "base_model_inference",
+      "limitName": "gpt-reserve",
+      "primary": {"usedPercent": 0, "windowDurationMins": 10080, "resetsAt": 1788370175},
+      "secondary": null,
+      "credits": null,
+      "individualLimit": null,
+      "spendControlReached": null,
+      "planType": "plus",
+      "rateLimitReachedType": null
+    },
+    "codex": {
+      "limitId": "codex",
+      "limitName": null,
+      "primary": {"usedPercent": 57, "windowDurationMins": 300, "resetsAt": 1787772632},
+      "secondary": {"usedPercent": 10, "windowDurationMins": 10080, "resetsAt": 1788271979},
+      "credits": {"hasCredits": false, "unlimited": false, "balance": "0"},
+      "individualLimit": {"limit": "100", "remainingPercent": 25, "resetsAt": 1788370175, "used": "75"},
+      "spendControlReached": false,
+      "planType": "plus",
+      "rateLimitReachedType": null
+    }
+  },
+  "rateLimitResetCredits": {"availableCount": 1, "credits": []}
+}
