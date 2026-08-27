@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
     animationState,
+    providerApiUsage,
     providerEntries,
     providerNotices,
     providerVisuals,
@@ -54,4 +55,13 @@ test('providerNotices accepts only bounded non-empty strings', () => {
     });
 
     assert.deepEqual(notices, ['One reset available', 'x'.repeat(80)]);
+});
+
+test('providerApiUsage accepts only a successful bounded cost estimate', () => {
+    assert.deepEqual(providerApiUsage({apiUsage: {
+        status: 'ok', currency: 'usd', estimatedCost: '12.50',
+    }}), {currency: 'USD', estimatedCost: '12.50'});
+    assert.equal(providerApiUsage({apiUsage: {status: 'error', estimatedCost: '12.50'}}), null);
+    assert.equal(providerApiUsage({apiUsage: {status: 'ok', currency: 'USD', estimatedCost: '1;'}}), null);
+    assert.equal(providerApiUsage({}), null);
 });

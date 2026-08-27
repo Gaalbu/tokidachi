@@ -41,6 +41,18 @@ export function providerNotices(provider) {
         .map(notice => notice.trim().slice(0, 80));
 }
 
+export function providerApiUsage(provider) {
+    const usage = provider?.apiUsage;
+    if (!usage || usage.status !== 'ok')
+        return null;
+    const currency = typeof usage.currency === 'string' ? usage.currency.toUpperCase() : '';
+    const estimatedCost = typeof usage.estimatedCost === 'string' ? usage.estimatedCost : '';
+    if (!/^[A-Z]{3}$/.test(currency) || !/^\d+(?:\.\d+)?$/.test(estimatedCost)
+        || estimatedCost.length > 24)
+        return null;
+    return {currency, estimatedCost};
+}
+
 function fallbackColor(name) {
     let hash = 0;
     for (const character of name)

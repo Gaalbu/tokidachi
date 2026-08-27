@@ -27,6 +27,7 @@ public final class CollectorApp {
                 new CacheStore(mapper, cache),
                 ProviderRegistry.create(mapper, httpClient, clock, environment));
         ObjectNode result = service.collectAll();
+        new ApiCostCollector(mapper, clock, httpClient, environment).enrich(result);
         boolean pretty = args.length == 1 && "--pretty".equals(args[0]);
         String output = pretty
                 ? mapper.writerWithDefaultPrettyPrinter().writeValueAsString(result)
