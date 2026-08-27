@@ -7,6 +7,9 @@ readonly PROJECT_DIR="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 readonly SOURCE_DIR="$PROJECT_DIR/$UUID"
 readonly DEST_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/gnome-shell/extensions/$UUID"
 readonly BACKUP_ROOT="${XDG_STATE_HOME:-$HOME/.local/state}/tokidachi/backups"
+readonly CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/tokidachi"
+readonly USER_API_CONFIG="$CONFIG_DIR/api-usage.json"
+readonly DEFAULT_API_CONFIG="$PROJECT_DIR/config/api-usage.json"
 readonly EXTENSION_FILES=(metadata.json extension.js i18n.js providerModel.js stylesheet.css config.json)
 
 enable_extension() {
@@ -60,6 +63,12 @@ done
 cp -a -- "$SOURCE_DIR/pets" "$DEST_DIR/pets"
 cp -a -- "$collector_source" "$DEST_DIR/collector"
 chmod 700 "$DEST_DIR/collector"
+
+if [[ ! -e "$USER_API_CONFIG" && ! -L "$USER_API_CONFIG" ]]; then
+    (umask 077; mkdir -p "$CONFIG_DIR")
+    install -m 600 "$DEFAULT_API_CONFIG" "$USER_API_CONFIG"
+    echo "Created disabled API settings at $USER_API_CONFIG"
+fi
 
 echo "Installed $UUID with the native Java collector"
 enable_extension

@@ -28,3 +28,17 @@ test('language selection is persisted, translated, and shipped with the extensio
     assert.match(installer, /i18n\.js/);
     assert.match(packager, /i18n\.js/);
 });
+
+test('installer seeds disabled Claude and Codex API settings without overwriting users', () => {
+    const settings = JSON.parse(fs.readFileSync(
+        path.join(root, 'config', 'api-usage.json'), 'utf8'));
+    const providers = settings.apiUsage.providers;
+    assert.deepEqual(providers.map(provider => provider.id), ['claude', 'codex']);
+    assert.equal(providers.every(provider => provider.enabled === false), true);
+
+    const installer = fs.readFileSync(path.join(root, 'scripts', 'install.sh'), 'utf8');
+    const packager = fs.readFileSync(path.join(root, 'scripts', 'package.sh'), 'utf8');
+    assert.match(installer, /api-usage\.json/);
+    assert.match(installer, /! -e "\$USER_API_CONFIG" && ! -L "\$USER_API_CONFIG"/);
+    assert.match(packager, /config\/api-usage\.json/);
+});
