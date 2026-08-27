@@ -45,6 +45,45 @@ class ApiCostCollectorTest {
     }
 
     @Test
+    void addsAConfiguredProviderUsingItsSelectedCollector() throws Exception {
+        Path config = temporaryDirectory.resolve("api-usage.json");
+        Files.writeString(config, """
+                {"apiUsage":{"providers":[{
+                  "id":"team-openai",
+                  "displayName":"Team OpenAI",
+                  "collector":"openai-costs",
+                  "enabled":true
+                }]}}
+                """);
+        var result = mapper.createObjectNode();
+        result.withObject("providers");
+
+        new ApiCostCollector(mapper, Clock.systemUTC(), HttpClient.newHttpClient(), Map.of(), config).enrich(result);
+
+        var provider = result.path("providers").path("team-openai");
+        assertEquals("Team OpenAI", provider.path("displayName").asText());
+        assertEquals(true, provider.path("configured").asBoolean());
+        assertEquals("unauthenticated", provider.path("apiUsage").path("status").asText());
+    }
+
+    @Test
+    void keepsAnUnknownCollectorOfflineAndReportsItAsUnavailable() throws Exception {
+        Path config = temporaryDirectory.resolve("api-usage.json");
+        Files.writeString(config, """
+                {"apiUsage":{"providers":[{
+                  "id":"future-ai", "collector":"future-costs", "enabled":true
+                }]}}
+                """);
+        var result = mapper.createObjectNode();
+        result.withObject("providers");
+
+        new ApiCostCollector(mapper, Clock.systemUTC(), HttpClient.newHttpClient(), Map.of(), config).enrich(result);
+
+        assertEquals("unavailable", result.path("providers").path("future-ai")
+                .path("apiUsage").path("status").asText());
+    }
+
+    @Test
     void sumsOpenAiCostBucketsInOneCurrency() throws Exception {
         var response = mapper.readTree("""
                 {"data":[
