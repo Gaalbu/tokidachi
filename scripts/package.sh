@@ -29,7 +29,7 @@ install -m 0644 "$PROJECT_DIR/config/api-usage.json" "$STAGE_ROOT/config/api-usa
     cd "$EXTENSION_STAGE"
     zip -q -r "$DIST_DIR/$UUID.shell-extension.zip" .
 )
-tar -C "$STAGE_ROOT" -czf "$DIST_DIR/tokidachi-linux-x86_64.tar.gz" "$UUID" scripts
+tar -C "$STAGE_ROOT" -czf "$DIST_DIR/tokidachi-linux-x86_64.tar.gz" "$UUID" scripts config
 printf 'Created:\n  %s\n  %s\n' \
     "$DIST_DIR/$UUID.shell-extension.zip" \
     "$DIST_DIR/tokidachi-linux-x86_64.tar.gz"
