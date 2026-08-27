@@ -10,13 +10,16 @@ API usage and cost collection is disabled by default. Until a provider is
 explicitly enabled, Tokidachi must not read an API credential, make a cost or
 usage request, add an API-cost section to the widget, or cache API data.
 
-Each provider is independently enabled. The future configuration belongs in
-the user configuration directory, never in the extension package or Git:
+Each provider is independently enabled. Create
+`$XDG_CONFIG_HOME/tokidachi/api-usage.json` (or
+`~/.config/tokidachi/api-usage.json`) in the user configuration directory,
+never in the extension package or Git:
 
 ```json
 {
   "version": 1,
   "apiUsage": {
+    "periodDays": 30,
     "claude": {"enabled": false},
     "codex": {"enabled": false}
   }
@@ -25,7 +28,9 @@ the user configuration directory, never in the extension package or Git:
 
 Credentials stay in user-managed environment variables or an operating-system
 secret store. They must never be written to Tokidachi configuration, state,
-cache files, logs, process arguments, or release artifacts.
+cache files, logs, process arguments, or release artifacts. The Codex adapter
+reads `TOKIDACHI_OPENAI_ADMIN_KEY` only when `apiUsage.codex.enabled` is true;
+`periodDays` accepts 1–31 days and defaults to 30.
 
 ## Additive collector contract
 
@@ -53,8 +58,8 @@ must not include provider responses or credentials. Older widgets ignore the
 optional object and continue rendering subscription windows.
 
 The widget renders this section only for an enabled provider whose object is
-present. It labels the amount as an estimate, displays the currency and period,
-and never presents it as an invoice.
+present. It labels the amount as an estimate, displays the currency, and never
+presents it as an invoice.
 
 ## Provider boundaries
 
@@ -71,3 +76,11 @@ Both providers return third-party data. Adapters must cap response size, use
 HTTPS with timeouts, validate the complete response shape before aggregation,
 and retain only normalized non-sensitive results. A credential failure maps to
 `unauthenticated`; an unsupported account or plan maps to `unavailable`.
+
+## Current adapter status
+
+The v0.4 foundation implements the OpenAI organization-cost adapter for Codex.
+It emits `ok`, `unauthenticated`, or `error`; the widget shows a cost only for
+an `ok` estimate. Claude opt-in currently emits `unavailable`, because its
+organization cost report needs a separate daily-pagination adapter. Neither
+provider is queried unless explicitly enabled.

@@ -16,6 +16,7 @@ import {
     animationState,
     providerEntries,
     providerNotices,
+    providerApiUsage,
     providerVisuals,
 } from './providerModel.js';
 
@@ -771,6 +772,12 @@ export default class TokidachiExtension extends Extension {
 
         for (const notice of providerNotices(provider))
             view.rows.add_child(label(notice, 'ai-usage-provider-status'));
+
+        const apiUsage = providerApiUsage(provider);
+        if (apiUsage) {
+            view.rows.add_child(label(this._t('apiEstimatedCost', apiUsage),
+                'ai-usage-provider-status'));
+        }
 
         if (windows.length > 0 && provider.message) {
             view.rows.add_child(label(String(provider.message).slice(0, 120),
