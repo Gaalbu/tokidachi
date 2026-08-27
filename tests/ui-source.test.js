@@ -41,4 +41,5 @@ test('installer seeds disabled Claude and Codex API settings without overwriting
     assert.match(installer, /api-usage\.json/);
     assert.match(installer, /! -e "\$USER_API_CONFIG" && ! -L "\$USER_API_CONFIG"/);
     assert.match(packager, /config\/api-usage\.json/);
+    assert.match(packager, /"\$UUID" scripts config/);
 });
