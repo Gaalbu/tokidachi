@@ -20,17 +20,35 @@ never in the extension package or Git:
   "version": 1,
   "apiUsage": {
     "periodDays": 30,
-    "claude": {"enabled": false},
-    "codex": {"enabled": false}
+    "providers": [
+      {"id": "codex", "collector": "openai-costs", "enabled": true},
+      {"id": "claude", "collector": "anthropic-costs", "enabled": false},
+      {
+        "id": "team-openai",
+        "displayName": "Team OpenAI",
+        "collector": "openai-costs",
+        "periodDays": 7,
+        "enabled": false
+      }
+    ]
   }
 }
 ```
 
 Credentials stay in user-managed environment variables or an operating-system
 secret store. They must never be written to Tokidachi configuration, state,
-cache files, logs, process arguments, or release artifacts. The Codex adapter
-reads `TOKIDACHI_OPENAI_ADMIN_KEY` only when `apiUsage.codex.enabled` is true;
-`periodDays` accepts 1–31 days and defaults to 30.
+cache files, logs, process arguments, or release artifacts. The OpenAI adapter
+reads `TOKIDACHI_OPENAI_ADMIN_KEY` only when an enabled `openai-costs` entry
+exists; `periodDays` accepts 1–31 days and defaults to 30.
+
+`id` is a unique lowercase identifier (letters, digits, and hyphens),
+`displayName` is optional and bounded to 40 characters, and `collector` selects
+an implemented adapter. Tokidachi deliberately does not accept arbitrary API
+URLs, headers, or environment-variable names in this file: those would allow a
+configuration file to redirect credentials or access local services. An
+unknown collector is shown as unavailable without reading a credential or
+making a network request. The former `apiUsage.codex` and `apiUsage.claude`
+flags continue to work as a compatibility fallback.
 
 ## Additive collector contract
 
@@ -79,8 +97,9 @@ and retain only normalized non-sensitive results. A credential failure maps to
 
 ## Current adapter status
 
-The v0.4 foundation implements the OpenAI organization-cost adapter for Codex.
-It emits `ok`, `unauthenticated`, or `error`; the widget shows a cost only for
-an `ok` estimate. Claude opt-in currently emits `unavailable`, because its
+The v0.4 foundation implements the `openai-costs` adapter, which can be
+attached to Codex or to a custom provider ID such as `team-openai`. It emits
+`ok`, `unauthenticated`, or `error`; the widget shows a cost only for an `ok`
+estimate. `anthropic-costs` currently emits `unavailable`, because its
 organization cost report needs a separate daily-pagination adapter. Neither
 provider is queried unless explicitly enabled.

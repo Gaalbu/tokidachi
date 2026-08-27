@@ -17,8 +17,12 @@ import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 final class ApiCostCollector {
     private static final int MAX_CONFIG_BYTES = 64 * 1024;
@@ -46,15 +50,38 @@ final class ApiCostCollector {
 
     void enrich(ObjectNode result) {
         Settings settings = readSettings();
-        if (!settings.codexEnabled() && !settings.claudeEnabled())
-            return;
-
         ObjectNode providers = result.withObject("providers");
-        if (settings.codexEnabled())
-            providers.withObject("codex").set("apiUsage", collectOpenAiCosts(settings.periodDays()));
-        if (settings.claudeEnabled())
-            providers.withObject("claude").set("apiUsage", unavailable(
-                    "Claude API cost collection is not available yet"));
+        for (ProviderSetting setting : settings.providers()) {
+            if (!setting.enabled())
+                continue;
+            ObjectNode usage = collect(setting);
+            ObjectNode provider = providers.get(setting.id()) instanceof ObjectNode existing
+                    ? existing : configuredProvider(setting, usage);
+            provider.set("apiUsage", usage);
+            if (!providers.has(setting.id()))
+                providers.set(setting.id(), provider);
+        }
+    }
+
+    private ObjectNode collect(ProviderSetting setting) {
+        return switch (setting.collector()) {
+            case "openai-costs" -> collectOpenAiCosts(setting.periodDays());
+            case "anthropic-costs" -> unavailable(
+                    "Anthropic API cost collection is not available yet");
+            default -> unavailable("The configured API cost collector is not supported");
+        };
+    }
+
+    private ObjectNode configuredProvider(ProviderSetting setting, ObjectNode usage) {
+        ObjectNode provider = mapper.createObjectNode();
+        provider.put("displayName", setting.displayName());
+        provider.put("configured", true);
+        provider.put("status", "ok".equals(usage.path("status").asText()) ? "ok" : "error");
+        provider.set("windows", mapper.createArrayNode());
+        provider.set("notices", mapper.createArrayNode());
+        if (usage.has("message"))
+            provider.put("message", usage.path("message").asText());
+        return provider;
     }
 
     private ObjectNode collectOpenAiCosts(int periodDays) {
@@ -148,11 +175,50 @@ final class ApiCostCollector {
                     ? usage.path("periodDays").asInt() : DEFAULT_PERIOD_DAYS;
             if (periodDays < 1 || periodDays > 31)
                 periodDays = DEFAULT_PERIOD_DAYS;
-            return new Settings(usage.path("codex").path("enabled").asBoolean(false),
-                    usage.path("claude").path("enabled").asBoolean(false), periodDays);
+            return new Settings(readProviders(usage, periodDays));
         } catch (IOException | RuntimeException exception) {
             return Settings.DISABLED;
         }
+    }
+
+    private List<ProviderSetting> readProviders(JsonNode usage, int defaultPeriodDays) {
+        JsonNode providers = usage.path("providers");
+        if (!providers.isArray())
+            return legacyProviders(usage, defaultPeriodDays);
+        List<ProviderSetting> settings = new ArrayList<>();
+        Set<String> ids = new HashSet<>();
+        for (JsonNode provider : providers) {
+            if (settings.size() == 8 || !provider.isObject())
+                break;
+            String id = provider.path("id").asText("").trim();
+            String displayName = provider.path("displayName").asText("").trim();
+            String collector = provider.path("collector").asText("").trim();
+            int periodDays = provider.path("periodDays").canConvertToInt()
+                    ? provider.path("periodDays").asInt() : defaultPeriodDays;
+            if (!id.matches("[a-z][a-z0-9-]{0,31}") || !ids.add(id)
+                    || displayName.length() > 40 || collector.isEmpty())
+                continue;
+            if (displayName.isEmpty())
+                displayName = title(id);
+            if (periodDays < 1 || periodDays > 31)
+                periodDays = defaultPeriodDays;
+            settings.add(new ProviderSetting(id, displayName, collector,
+                    provider.path("enabled").asBoolean(false), periodDays));
+        }
+        return List.copyOf(settings);
+    }
+
+    private List<ProviderSetting> legacyProviders(JsonNode usage, int periodDays) {
+        List<ProviderSetting> settings = new ArrayList<>();
+        if (usage.path("codex").path("enabled").asBoolean(false))
+            settings.add(new ProviderSetting("codex", "Codex", "openai-costs", true, periodDays));
+        if (usage.path("claude").path("enabled").asBoolean(false))
+            settings.add(new ProviderSetting("claude", "Claude", "anthropic-costs", true, periodDays));
+        return List.copyOf(settings);
+    }
+
+    private static String title(String id) {
+        return Character.toUpperCase(id.charAt(0)) + id.substring(1);
     }
 
     private ObjectNode unavailable(String message) {
@@ -188,7 +254,10 @@ final class ApiCostCollector {
 
     record Cost(String currency, BigDecimal amount) {}
 
-    private record Settings(boolean codexEnabled, boolean claudeEnabled, int periodDays) {
-        private static final Settings DISABLED = new Settings(false, false, DEFAULT_PERIOD_DAYS);
+    private record Settings(List<ProviderSetting> providers) {
+        private static final Settings DISABLED = new Settings(List.of());
     }
+
+    private record ProviderSetting(String id, String displayName, String collector,
+                                   boolean enabled, int periodDays) {}
 }
