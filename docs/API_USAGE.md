@@ -10,10 +10,10 @@ API usage and cost collection is disabled by default. Until a provider is
 explicitly enabled, Tokidachi must not read an API credential, make a cost or
 usage request, add an API-cost section to the widget, or cache API data.
 
-Each provider is independently enabled. Create
+Each provider is independently enabled. Installation creates
 `$XDG_CONFIG_HOME/tokidachi/api-usage.json` (or
-`~/.config/tokidachi/api-usage.json`) in the user configuration directory,
-never in the extension package or Git:
+`~/.config/tokidachi/api-usage.json`) once, with Claude and Codex prepared but
+disabled. It never overwrites an existing file:
 
 ```json
 {
@@ -21,15 +21,8 @@ never in the extension package or Git:
   "apiUsage": {
     "periodDays": 30,
     "providers": [
-      {"id": "codex", "collector": "openai-costs", "enabled": true},
       {"id": "claude", "collector": "anthropic-costs", "enabled": false},
-      {
-        "id": "team-openai",
-        "displayName": "Team OpenAI",
-        "collector": "openai-costs",
-        "periodDays": 7,
-        "enabled": false
-      }
+      {"id": "codex", "collector": "openai-costs", "enabled": false}
     ]
   }
 }
@@ -49,6 +42,25 @@ configuration file to redirect credentials or access local services. An
 unknown collector is shown as unavailable without reading a credential or
 making a network request. The former `apiUsage.codex` and `apiUsage.claude`
 flags continue to work as a compatibility fallback.
+
+## Adding another provider manually
+
+Add a provider entry yourself only after Tokidachi has an implemented collector
+for it. For example, a second OpenAI organization can use the existing adapter:
+
+```json
+{
+  "id": "team-openai",
+  "displayName": "Team OpenAI",
+  "collector": "openai-costs",
+  "periodDays": 7,
+  "enabled": false
+}
+```
+
+Set `enabled` to `true` only after the required credential is available. A
+provider with a collector that Tokidachi does not implement remains offline and
+is shown as unavailable.
 
 ## Additive collector contract
 

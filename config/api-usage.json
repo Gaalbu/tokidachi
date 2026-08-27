@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "apiUsage": {
+    "periodDays": 30,
+    "providers": [
+      {
+        "id": "claude",
+        "collector": "anthropic-costs",
+        "enabled": false
+      },
+      {
+        "id": "codex",
+        "collector": "openai-costs",
+        "enabled": false
+      }
+    ]
+  }
+}
