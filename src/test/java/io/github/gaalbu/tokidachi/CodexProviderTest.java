@@ -7,6 +7,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Clock;
@@ -16,12 +17,14 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 class CodexProviderTest {
     @TempDir Path temporary;
 
     @Test
     void exchangesJsonRpcWithAppServerProcess() throws IOException, ProviderException {
+        assumeTrue(FileSystems.getDefault().supportedFileAttributeViews().contains("posix"));
         Path command = temporary.resolve("codex");
         Files.writeString(command, """
                 #!/usr/bin/env bash
@@ -44,6 +47,7 @@ class CodexProviderTest {
 
     @Test
     void returnsReachedStateWhenCodexProvidesNoWindows() throws IOException, ProviderException {
+        assumeTrue(FileSystems.getDefault().supportedFileAttributeViews().contains("posix"));
         Path command = temporary.resolve("codex-limit-reached");
         Files.writeString(command, """
                 #!/usr/bin/env bash

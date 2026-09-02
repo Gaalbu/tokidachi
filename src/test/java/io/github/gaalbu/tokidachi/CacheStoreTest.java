@@ -7,12 +7,14 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.FileSystems;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 class CacheStoreTest {
     private final ObjectMapper mapper = new ObjectMapper();
@@ -33,6 +35,7 @@ class CacheStoreTest {
 
         assertEquals("do not overwrite", Files.readString(target));
         assertFalse(Files.isSymbolicLink(cache));
+        assumeTrue(FileSystems.getDefault().supportedFileAttributeViews().contains("posix"));
         assertEquals("rw-------", PosixFilePermissions.toString(Files.getPosixFilePermissions(cache)));
         assertEquals(2, new CacheStore(mapper, cache).read().path("version").asInt());
     }
