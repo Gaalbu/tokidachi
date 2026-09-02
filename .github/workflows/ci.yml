@@ -56,3 +56,33 @@ jobs:
           XDG_CACHE_HOME: ${{ runner.temp }}/cache
       - run: ./scripts/package.sh target/tokidachi
       - run: test -f dist/tokidachi-linux-x86_64.tar.gz && test -f dist/tokidachi@gaalbu.github.io.shell-extension.zip
+
+  native-portability:
+    name: Native image (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: '25'
+          distribution: graalvm-community
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          cache: maven
+      - name: Build native collector
+        run: mvn --batch-mode -Pnative package
+      - name: Smoke-test native collector
+        shell: bash
+        run: |
+          if [[ "$RUNNER_OS" == "Windows" ]]; then target/tokidachi.exe --pretty > output.json; else target/tokidachi --pretty > output.json; fi
+          test -s output.json
+          python -c "import json; d=json.load(open('output.json')); assert d['version'] == 1; assert isinstance(d['providers'], dict)"
+        env:
+          HOME: ${{ runner.temp }}/empty-home
+          XDG_CACHE_HOME: ${{ runner.temp }}/cache
+          CLAUDE_CONFIG_DIR: ${{ runner.temp }}/empty-claude
+          CODEX_HOME: ${{ runner.temp }}/empty-codex
