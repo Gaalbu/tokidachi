@@ -1,5 +1,21 @@
 # Tokidachi
 
+This repository is the Linux/GNOME component of Tokidachi. It owns the
+platform-neutral Java collector, its versioned JSON contract, and the Linux
+host. The native macOS and Windows hosts consume that contract without
+reimplementing provider or credential parsing.
+
+### Tokidachi components
+
+| Component | Scope | Repository / downloads |
+| --- | --- | --- |
+| Collector + Linux host | Java collector and GNOME Shell widget | [tokidachi](https://github.com/Gaalbu/tokidachi) · [Linux releases](https://github.com/Gaalbu/tokidachi/releases) |
+| macOS host | Swift/AppKit/SwiftUI menu bar app | [tokidachiMac](https://github.com/Gaalbu/tokidachiMac) · _macOS releases: TBD_ |
+| Windows host | WinUI 3/.NET tray app | [tokidachiWin](https://github.com/Gaalbu/tokidachiWin) · _Windows releases: TBD_ |
+
+Rendering fixtures are available in [`fixtures/collector`](fixtures/collector/)
+for both native hosts to test against before a live collector is available.
+
 A quiet GNOME Shell widget that shows Claude Code and Codex usage windows on
 Ubuntu. Providers are independent and only configured providers are
 displayed.
