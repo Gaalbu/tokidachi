@@ -24,6 +24,8 @@ test('automatic language follows Portuguese system locales and otherwise uses En
 test('translations localize widget copy and interpolate named values', () => {
     assert.equal(translate('pt-BR', 'updated', {time: '14:32'}), 'Atualizado às 14:32');
     assert.equal(translate('pt-BR', 'needsAttention'), 'Requer atenção');
+    assert.equal(translate('pt-BR', 'countLabel', {label: 'Hoje', count: 3}), 'Hoje: 3 sessões');
+    assert.equal(translate('en', 'countLabel', {label: 'Today', count: 3}), 'Today: 3 sessions');
     assert.equal(translate('en', 'updated', {time: '14:32'}), 'Updated 14:32');
 });
 

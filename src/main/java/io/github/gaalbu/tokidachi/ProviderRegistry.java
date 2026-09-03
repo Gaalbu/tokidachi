@@ -17,6 +17,7 @@ final class ProviderRegistry {
             Map<String, String> environment) {
         return List.of(
                 new ClaudeProvider(mapper, httpClient, clock, environment),
-                new CodexProvider(mapper, clock, environment));
+                new CodexProvider(mapper, clock, environment),
+                new OpenCodeProvider(mapper, clock, environment));
     }
 }

@@ -1,0 +1,1 @@
+{"version":1,"updatedAt":1756800000,"providers":{"claude":{"displayName":"Claude","color":"#d97757","pet":"pets/claude.svg","status":"ok","configured":true,"windows":[{"label":"5-hour window","usedPercent":42.5,"resetLabel":"in 2h"},{"label":"7-day window","usedPercent":18.0,"resetLabel":"Mon 09:00"}],"notices":[]}}}

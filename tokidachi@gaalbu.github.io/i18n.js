@@ -23,6 +23,11 @@ const MESSAGES = Object.freeze({
         refreshNow: 'Refresh usage now',
         minimize: 'Minimize Tokidachi',
         restore: 'Restore Tokidachi',
+        providers: 'Providers',
+        countLabel: '{label}: {count} sessions',
+        last5Hours: 'Last 5 hours',
+        today: 'Today',
+        last7Days: 'Last 7 days',
     }),
     'pt-BR': Object.freeze({
         updating: 'Atualizando…',
@@ -46,6 +51,11 @@ const MESSAGES = Object.freeze({
         refreshNow: 'Atualizar uso agora',
         minimize: 'Minimizar Tokidachi',
         restore: 'Restaurar Tokidachi',
+        providers: 'Provedores',
+        countLabel: '{label}: {count} sessões',
+        last5Hours: 'Últimas 5 horas',
+        today: 'Hoje',
+        last7Days: 'Últimos 7 dias',
     }),
 });
 

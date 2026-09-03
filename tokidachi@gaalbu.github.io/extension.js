@@ -36,6 +36,7 @@ const DEFAULT_CONFIG = {
 const DEFAULT_STATE = {
     minimized: false,
     language: 'auto',
+    providers: null,
 };
 
 const THEME_ORDER = ['dark', 'light', 'glass'];
@@ -206,6 +207,8 @@ export default class TokidachiExtension extends Extension {
                     minimized: state.minimized === true,
                     theme: THEME_ALIASES.get(state.theme) ?? this._config.theme,
                     language: normalizeLanguageSelection(state.language ?? this._config.language),
+                    providers: state.providers && typeof state.providers === 'object' && !Array.isArray(state.providers)
+                        ? {...state.providers} : null,
                 };
             }
         } catch (error) {
@@ -225,6 +228,31 @@ export default class TokidachiExtension extends Extension {
             GLib.chmod(this._uiStatePath, 0o600);
         } catch (error) {
             console.warn(`[Tokidachi] Could not save user state: ${error.message}`);
+        }
+    }
+
+    _isProviderVisible(name) {
+        const map = this._state.providers;
+        if (!map || typeof map !== 'object') return true;
+        if (!(name in map)) return true;
+        return map[name] !== false;
+    }
+
+    _toggleProvider(name) {
+        if (!this._state.providers || typeof this._state.providers !== 'object' || Array.isArray(this._state.providers))
+            this._state.providers = {};
+        this._state.providers[name] = !this._isProviderVisible(name);
+        this._writeState();
+        this._refreshMenuProviders();
+        if (this._lastUsageData) this._render(this._lastUsageData);
+        else if (this._lastFailureMessage) this._renderFailure(this._lastFailureMessage);
+    }
+
+    _refreshMenuProviders() {
+        if (!this._providerMenuRows) return;
+        for (const row of this._providerMenuRows.values()) {
+            const name = row._providerName;
+            row._check.text = this._isProviderVisible(name) ? '☑' : '☐';
         }
     }
 
@@ -377,7 +405,29 @@ export default class TokidachiExtension extends Extension {
         });
         this._menu.add_child(refreshButton);
 
+        this._providerMenuRows = new Map();
+        this._buildProviderMenu();
+
         this._card.add_child(this._menu);
+    }
+
+    _buildProviderMenu() {
+        const header = label(this._t('providers'), 'ai-usage-menu-label');
+        this._menu.add_child(header);
+        for (const name of ['claude', 'codex', 'opencode']) {
+            const row = box(false, 'ai-usage-menu-row');
+            const check = label(this._isProviderVisible(name) ? '☑' : '☐', 'ai-usage-menu-value');
+            const nameLabel = label(name, 'ai-usage-menu-label');
+            row.add_child(check);
+            row.add_child(nameLabel);
+            row._providerName = name;
+            row._check = check;
+            const btn = new St.Button({style_class: 'ai-usage-menu-item', can_focus: false});
+            btn.set_child(row);
+            btn.connect('clicked', () => this._toggleProvider(name));
+            this._providerMenuRows.set(name, row);
+            this._menu.add_child(btn);
+        }
     }
 
     _t(key, values = {}) {
@@ -472,7 +522,7 @@ export default class TokidachiExtension extends Extension {
 
         const rows = box(true);
         container.add_child(rows);
-        const view = {name, divider, container, rows, status, statusLabel, nameLabel,
+        const view = {name, providerName: name, divider, container, rows, status, statusLabel, nameLabel,
             petActor: pet, petPath: visuals.pet, displayName: visuals.displayName,
             color: visuals.color, animationState: 'idle', animationGeneration: 0};
         this._updatePetIcon(view);
@@ -741,7 +791,8 @@ export default class TokidachiExtension extends Extension {
             }
         }
         this._syncDividers();
-        this._hasVisibleProviders = visibleProviders > 0;
+        const hasProviders = providerEntries(data).length > 0;
+        this._hasVisibleProviders = visibleProviders > 0 || hasProviders;
         this._syncPresentation();
         const time = new Date((data.updatedAt ?? Date.now() / 1000) * 1000);
         const formattedTime = time.toLocaleTimeString(this._language,
@@ -753,7 +804,10 @@ export default class TokidachiExtension extends Extension {
     _renderProvider(view, provider) {
         view.rows.destroy_all_children();
         const windows = provider.windows ?? [];
-        const visible = provider.configured === true || windows.length > 0;
+        let visible = provider.configured === true || windows.length > 0;
+        if (visible && !this._isProviderVisible(view.providerName ?? '')) {
+            visible = false;
+        }
         view.container.visible = visible;
         if (!visible)
             this._stopPet(view);
@@ -792,6 +846,15 @@ export default class TokidachiExtension extends Extension {
     }
 
     _makeUsageRow(window, color) {
+        if (window.kind === 'count') {
+            const container = box(true, 'ai-usage-row');
+            const line = box(false);
+            line.add_child(label(this._t('countLabel', {label: window.label, count: window.count}), 'ai-usage-row-label'));
+            container.add_child(line);
+            if (window.resetLabel)
+                container.add_child(label(window.resetLabel, 'ai-usage-provider-status'));
+            return container;
+        }
         const usedPercent = Math.round(clamp(window.usedPercent, 0, 100));
         const container = box(true, 'ai-usage-row');
         const line = box(false);

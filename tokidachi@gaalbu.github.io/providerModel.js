@@ -27,8 +27,10 @@ export function animationState(provider) {
     if (provider?.status !== 'ok' && provider?.status !== 'stale')
         return 'attention';
     let highestUsage = 0;
-    for (const window of Array.isArray(provider?.windows) ? provider.windows : [])
+    for (const window of Array.isArray(provider?.windows) ? provider.windows : []) {
+        if (window?.kind === 'count') continue;
         highestUsage = Math.max(highestUsage, Number(window?.usedPercent) || 0);
+    }
     return highestUsage > 80 ? 'high' : 'idle';
 }
 

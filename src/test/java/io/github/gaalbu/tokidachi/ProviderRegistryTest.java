@@ -15,7 +15,7 @@ class ProviderRegistryTest {
         var providers = ProviderRegistry.create(
                 new ObjectMapper(), HttpClient.newHttpClient(), Clock.systemUTC(), Map.of());
 
-        assertEquals(java.util.List.of("claude", "codex"),
+        assertEquals(java.util.List.of("claude", "codex", "opencode"),
                 providers.stream().map(UsageProvider::name).toList());
     }
 }

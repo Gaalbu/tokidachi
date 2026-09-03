@@ -283,6 +283,17 @@ logged, cached, or included in process arguments. Cache files contain only
 usage windows and timestamps, use mode `0600`, and live under
 `$XDG_CACHE_HOME/tokidachi/usage.json` (normally `~/.cache`).
 
+OpenCode is currently measured from its local SQLite history. Tokidachi counts
+assistant responses from free OpenCode models in the last five hours, today,
+and the last seven days, and displays those values explicitly as session
+counts. It does not convert them into percentages or draw a quota bar yet:
+OpenCode does not provide this local reader with a stable total session limit,
+and its free-tier quota is intentionally opaque. Showing `12%` without a
+known denominator would suggest a precision the collector does not have. When
+OpenCode exposes a trustworthy `used`/`limit` or remaining-quota signal, this
+provider can adopt the same `usedPercent` contract as Claude and Codex. Until
+then, the count is the honest and comparable metric for OpenCode activity.
+
 ## Tests
 
 ```bash

@@ -1,0 +1,1 @@
+{"version":1,"updatedAt":1756800000,"providers":{"codex":{"displayName":"Codex","color":"#4f8cff","pet":"pets/codex.svg","status":"stale","configured":true,"windows":[{"label":"5-hour window","usedPercent":76.0,"resetLabel":"in 45m"}],"notices":["Showing the last successful reading"],"message":"Codex app-server is unavailable"}}}
