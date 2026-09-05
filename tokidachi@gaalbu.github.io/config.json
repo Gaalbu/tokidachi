@@ -8,5 +8,6 @@
   "scaleStep": 0.1,
   "language": "auto",
   "theme": "dark",
-  "petAnimations": true
+  "petAnimations": true,
+  "layer": "auto"
 }

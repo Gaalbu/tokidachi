@@ -187,7 +187,23 @@ No config-file editing is required for day-to-day use:
   widget to a small pill; click the pill to restore it.
 - **Right-click** the card to open a small menu: cycle the theme
   (Dark → Light → Glass), choose the interface language (System → English →
-  Portuguese (Brazil)), reset position and size, or force an immediate refresh.
+  Portuguese (Brazil)), switch the stacking layer, reset position and size, or
+  force an immediate refresh.
+
+If the widget is visible but does not respond to dragging or clicking, another
+extension owns the desktop layer and is swallowing the pointer events. Desktop
+icon extensions and wallpaper or blur effects are the usual causes. Tokidachi
+detects this and moves itself to the overlay layer on its own, logging the
+culprit:
+
+```bash
+journalctl --user -b -o cat /usr/bin/gnome-shell | grep Tokidachi
+```
+
+The **Layer** entry in the right-click menu cycles `Automatic → Desktop →
+On top` if you would rather pin the behaviour yourself. `Desktop` draws the
+widget below every window (the default look), while `On top` keeps it above
+them and always interactive.
 
 Theme, language, and minimized state persist across restarts in
 `~/.config/tokidachi/`. Layout (position, monitor, scale) is saved
@@ -218,7 +234,8 @@ Available values:
   "scaleStep": 0.1,
   "language": "auto",
   "theme": "dark",
-  "petAnimations": true
+  "petAnimations": true,
+  "layer": "auto"
 }
 ```
 
@@ -227,8 +244,11 @@ and only applies until the widget is first dragged. `theme` accepts `dark`,
 `light`, or `glass`. `language` accepts `auto`, `en`, or `pt-BR`; a language
 chosen from the widget menu overrides this default and is saved in `state.json`.
 Set `petAnimations` to `false` to disable all mascot motion; the pets remain
-visible as static icons. Disable and re-enable the extension after changing the
+visible as static icons. `layer` accepts `auto`, `desktop`, or `overlay`, and a
+layer chosen from the widget menu overrides this default. Disable and re-enable the extension after changing the
 file.
+
+Fixes and notable changes are listed in [CHANGELOG.md](CHANGELOG.md).
 
 ## Collector architecture and privacy
 
