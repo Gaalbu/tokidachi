@@ -97,7 +97,7 @@ final class ApiCostCollector {
                                 + "&bucket_width=1d"))
                 .timeout(Duration.ofSeconds(15))
                 .header("Authorization", "Bearer " + key)
-                .header("User-Agent", "tokidachi/0.3.1")
+                .header("User-Agent", "tokidachi/0.4.0")
                 .GET()
                 .build();
         try {

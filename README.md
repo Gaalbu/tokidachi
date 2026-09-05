@@ -164,7 +164,7 @@ make native
 Build outputs:
 
 - `mvn package` creates the executable
-  `target/tokidachi-0.3.1-all.jar`.
+  `target/tokidachi-0.4.0-all.jar`.
 - `mvn -Pnative package` creates `target/tokidachi`, the standalone
   Linux executable used by the extension.
 - `make package` creates the installable archives under `dist/`.
@@ -172,7 +172,7 @@ Build outputs:
 The JAR is useful for development and diagnostics:
 
 ```bash
-java -jar target/tokidachi-0.3.1-all.jar --pretty
+java -jar target/tokidachi-0.4.0-all.jar --pretty
 ```
 
 ## Interact and customize
