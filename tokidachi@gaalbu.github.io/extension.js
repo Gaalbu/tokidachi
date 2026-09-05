@@ -1,6 +1,7 @@
 import Clutter from 'gi://Clutter';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
+import Meta from 'gi://Meta';
 import St from 'gi://St';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
@@ -25,18 +26,20 @@ const DEFAULT_CONFIG = {
     position: 'top-right',
     margin: 28,
     scale: 1,
-    minScale: 0.65,
-    maxScale: 1.75,
+    minScale: 0.45,
+    maxScale: 2.5,
     scaleStep: 0.1,
     language: 'auto',
     theme: 'dark',
     petAnimations: true,
+    layer: 'auto',
 };
 
 const DEFAULT_STATE = {
     minimized: false,
     language: 'auto',
     providers: null,
+    layer: 'auto',
 };
 
 const THEME_ORDER = ['dark', 'light', 'glass'];
@@ -50,12 +53,26 @@ const LANGUAGE_MESSAGE_KEYS = new Map([
     ['en', 'languageEnglish'],
     ['pt-BR', 'languagePortuguese'],
 ]);
+// 'desktop' keeps the card in the wallpaper layer, below every window.
+// 'overlay' puts it in the shell chrome, above them. 'auto' starts on the
+// desktop and falls back to the overlay when something else owns the desktop.
+const LAYER_SELECTIONS = Object.freeze(['auto', 'desktop', 'overlay']);
+const LAYER_MESSAGE_KEYS = new Map([
+    ['auto', 'layerAuto'],
+    ['desktop', 'layerDesktop'],
+    ['overlay', 'layerOverlay'],
+]);
+
 const THEME_ALIASES = new Map([
     ['dark', 'dark'],
     ['light', 'light'],
     ['glass', 'glass'],
     ['transparent', 'glass'],
 ]);
+
+function normalizeLayerSelection(value) {
+    return LAYER_SELECTIONS.includes(value) ? value : 'auto';
+}
 
 function clamp(value, low, high) {
     return Math.min(high, Math.max(low, Number(value) || 0));
@@ -99,12 +116,21 @@ export default class TokidachiExtension extends Extension {
         // Keep the widget in the desktop background layer. This gives normal
         // application windows (including maximized ones) visual priority,
         // while the widget remains interactive whenever the desktop is shown.
-        this._addToDesktopLayer();
-        this._monitorSignal = Main.layoutManager.connect('monitors-changed',
-            () => this._placeWidget());
+        this._activeLayer = null;
+        this._applyLayer(this._state.layer === 'overlay' ? 'overlay' : 'desktop');
+        this._monitorSignal = Main.layoutManager.connect('monitors-changed', () => {
+            this._placeWidget();
+            this._scheduleInputAudit();
+        });
         this._outsideClickSignal = global.stage.connect('button-press-event',
             (_actor, event) => this._onStageButtonPress(event));
+        // Extensions that own the desktop (desktop icons, wallpaper effects)
+        // usually map their window after us, so audit again once the session
+        // has settled and whenever a new window shows up.
+        this._windowGroupSignal = global.window_group.connect('child-added',
+            () => this._scheduleInputAudit());
         this._placeWidget();
+        this._scheduleInputAudit();
         this._refresh();
 
         const seconds = clamp(this._config.refreshSeconds, 60, 3600);
@@ -127,7 +153,19 @@ export default class TokidachiExtension extends Extension {
             global.stage.disconnect(this._outsideClickSignal);
             this._outsideClickSignal = null;
         }
+        if (this._windowGroupSignal) {
+            global.window_group.disconnect(this._windowGroupSignal);
+            this._windowGroupSignal = null;
+        }
         this._endDrag();
+        this._endResize();
+        this._releasePointer(this._menuCapture);
+        this._menuCapture = null;
+        // After _endDrag(), which can re-arm the audit while a drag is live.
+        if (this._auditTimer) {
+            GLib.source_remove(this._auditTimer);
+            this._auditTimer = null;
+        }
         if (this._stateSaveTimer) {
             GLib.source_remove(this._stateSaveTimer);
             this._stateSaveTimer = null;
@@ -139,25 +177,29 @@ export default class TokidachiExtension extends Extension {
         for (const provider of this._providers?.values() ?? [])
             this._stopPet(provider);
         if (this._card) {
-            if (this._desktopLayer === Main.layoutManager) {
-                Main.layoutManager.removeChrome(this._card);
-            } else if (this._desktopLayer) {
-                if (this._trackedChrome)
-                    Main.layoutManager.untrackChrome(this._card);
-                this._desktopLayer.remove_child(this._card);
-            }
+            this._detachCard();
             this._card.destroy();
         }
         this._card = null;
         this._menu = null;
         this._desktopLayer = null;
+        this._activeLayer = null;
         this._trackedChrome = false;
     }
 
-    _addToDesktopLayer() {
+    _applyLayer(layer) {
+        const target = layer === 'overlay' ? 'overlay' : 'desktop';
+        if (this._activeLayer === target)
+            return;
+
         const backgroundGroup = Main.layoutManager._backgroundGroup;
-        if (backgroundGroup) {
+        this._detachCard();
+
+        // Older or customized Shell versions may not expose the background
+        // group; there the overlay layer is the only option available.
+        if (target === 'desktop' && backgroundGroup) {
             backgroundGroup.add_child(this._card);
+            backgroundGroup.set_child_above_sibling(this._card, null);
             this._desktopLayer = backgroundGroup;
             // Being parented under the background group only makes the card
             // render below windows; Mutter still needs an explicit input
@@ -165,16 +207,146 @@ export default class TokidachiExtension extends Extension {
             // beneath (the desktop), leaving the widget visible but dead.
             Main.layoutManager.trackChrome(this._card, {affectsInputRegion: true});
             this._trackedChrome = true;
-            return;
+            this._activeLayer = 'desktop';
+        } else {
+            Main.layoutManager.addChrome(this._card, {
+                affectsInputRegion: true,
+                trackFullscreen: true,
+            });
+            this._desktopLayer = Main.layoutManager;
+            this._activeLayer = 'overlay';
         }
 
-        // Older or customized Shell versions may not expose the background
-        // group. Keep the extension usable there with the regular chrome API.
-        Main.layoutManager.addChrome(this._card, {
-            affectsInputRegion: true,
-            trackFullscreen: true,
+        this._placeWidget();
+        if (this._layerValue)
+            this._layerValue.text = this._layerName();
+    }
+
+    _detachCard() {
+        if (!this._card || !this._desktopLayer)
+            return;
+        if (this._desktopLayer === Main.layoutManager) {
+            Main.layoutManager.removeChrome(this._card);
+        } else {
+            if (this._trackedChrome)
+                Main.layoutManager.untrackChrome(this._card);
+            this._desktopLayer.remove_child(this._card);
+        }
+        this._trackedChrome = false;
+        this._desktopLayer = null;
+        this._activeLayer = null;
+    }
+
+    _onCardAllocated() {
+        this._placeWidget();
+        this._scheduleInputAudit();
+    }
+
+    _scheduleInputAudit(delay = 1500) {
+        if (this._auditTimer)
+            GLib.source_remove(this._auditTimer);
+        this._auditTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, delay, () => {
+            this._auditTimer = null;
+            this._auditInputLayer();
+            return GLib.SOURCE_REMOVE;
         });
-        this._desktopLayer = Main.layoutManager;
+    }
+
+    // The desktop layer is only usable while nothing else claims it. Desktop
+    // icon extensions map a DESKTOP-type window over the whole screen, and
+    // wallpaper or blur effects push actors on top of the background group;
+    // in both cases the card stays visible but stops receiving any pointer
+    // event, which reads as a frozen widget. Detect that and move to the
+    // overlay layer instead of leaving the user with a dead widget.
+    _auditInputLayer() {
+        if (!this._card || this._state.layer !== 'auto' || this._activeLayer !== 'desktop')
+            return;
+        // Cheapest fix first: reclaim the top of the background group.
+        if (this._desktopLayer && this._desktopLayer !== Main.layoutManager)
+            this._desktopLayer.set_child_above_sibling(this._card, null);
+        const blocker = this._desktopLayerBlocker();
+        if (!blocker)
+            return;
+        console.warn(`[Tokidachi] desktop layer input is blocked by ${blocker}; ` +
+            'switching the widget to the overlay layer');
+        this._applyLayer('overlay');
+        if (this._menuOpen)
+            this._closeMenu();
+    }
+
+    _desktopLayerBlocker() {
+        const [x, y] = this._card.get_transformed_position();
+        const [width, height] = this._card.get_transformed_size();
+        if (!(width > 0) || !(height > 0))
+            return null;
+        return this._desktopWindowOver(x, y, width, height) ??
+            this._pickBlocker(x + width / 2, y + height / 2);
+    }
+
+    _desktopWindowOver(x, y, width, height) {
+        let actors = [];
+        try {
+            actors = global.get_window_actors() ?? [];
+        } catch (_error) {
+            return null;
+        }
+        for (const actor of actors) {
+            const window = actor.meta_window ?? actor.get_meta_window?.();
+            if (!window || window.minimized)
+                continue;
+            let type = null;
+            try {
+                type = window.get_window_type();
+            } catch (_error) {
+                continue;
+            }
+            if (type !== Meta.WindowType.DESKTOP)
+                continue;
+            const frame = window.get_frame_rect();
+            const overlaps = frame.x < x + width && x < frame.x + frame.width &&
+                frame.y < y + height && y < frame.y + frame.height;
+            if (overlaps)
+                return `desktop window "${window.get_wm_class() || window.get_title() || 'unknown'}"`;
+        }
+        return null;
+    }
+
+    _pickBlocker(x, y) {
+        let hit = null;
+        try {
+            hit = global.stage.get_actor_at_pos(Clutter.PickMode.REACTIVE,
+                Math.round(x), Math.round(y));
+        } catch (_error) {
+            return null;
+        }
+        if (!hit || this._isCardDescendant(hit))
+            return null;
+        const background = Main.layoutManager._backgroundGroup;
+        for (let node = hit; node; node = node.get_parent()) {
+            // An ordinary window covering the card is the whole point of the
+            // desktop layer, so it never counts as a conflict. On Wayland the
+            // pick lands on the surface actor inside the window actor, so the
+            // whole ancestor chain has to be checked, not just the hit.
+            if (node instanceof Meta.WindowActor)
+                return null;
+            if (node === background)
+                return this._describeActor(hit);
+        }
+        return null;
+    }
+
+    _isCardDescendant(actor) {
+        for (let node = actor; node; node = node.get_parent()) {
+            if (node === this._card)
+                return true;
+        }
+        return false;
+    }
+
+    _describeActor(actor) {
+        const type = actor?.constructor?.$gtype?.name ?? 'actor';
+        const name = actor?.get_name?.() || actor?.style_class || '';
+        return name ? `${type} (${name})` : type;
     }
 
     _readConfig() {
@@ -189,6 +361,7 @@ export default class TokidachiExtension extends Extension {
                     ? config.theme.trim().toLowerCase() : '';
                 config.theme = THEME_ALIASES.get(requestedTheme) ?? DEFAULT_CONFIG.theme;
                 config.language = normalizeLanguageSelection(config.language);
+                config.layer = normalizeLayerSelection(config.layer);
                 return config;
             }
         } catch (error) {
@@ -209,13 +382,19 @@ export default class TokidachiExtension extends Extension {
                     language: normalizeLanguageSelection(state.language ?? this._config.language),
                     providers: state.providers && typeof state.providers === 'object' && !Array.isArray(state.providers)
                         ? {...state.providers} : null,
+                    layer: normalizeLayerSelection(state.layer ?? this._config.layer),
                 };
             }
         } catch (error) {
             if (!error.matches?.(GLib.FileError, GLib.FileError.NOENT))
                 console.warn(`[Tokidachi] Invalid user state: ${error.message}`);
         }
-        return {...DEFAULT_STATE, theme: this._config.theme, language: this._config.language};
+        return {
+            ...DEFAULT_STATE,
+            theme: this._config.theme,
+            language: this._config.language,
+            layer: this._config.layer,
+        };
     }
 
     _writeState() {
@@ -274,7 +453,8 @@ export default class TokidachiExtension extends Extension {
                     : fallback.scale,
             };
         } catch (error) {
-            console.warn(`[Tokidachi] Invalid layout state: ${error.message}`);
+            if (!error.matches?.(GLib.FileError, GLib.FileError.NOENT))
+                console.warn(`[Tokidachi] Invalid layout state: ${error.message}`);
             return fallback;
         }
     }
@@ -317,18 +497,27 @@ export default class TokidachiExtension extends Extension {
     }
 
     _buildUi() {
-        this._card = box(true, `ai-usage-card theme-${this._state.theme}`);
+        this._card = new St.Widget({
+            layout_manager: new Clutter.BinLayout(),
+            style_class: `ai-usage-card theme-${this._state.theme}`,
+        });
         this._card.reactive = true;
         this._card.track_hover = true;
         this._card.can_focus = false;
         this._card.set_pivot_point(0, 0);
         this._card.set_scale(this._layoutState.scale, this._layoutState.scale);
-        this._card.connect('notify::width', () => this._placeWidget());
-        this._card.connect('notify::height', () => this._placeWidget());
+        // Re-place on every allocation change, and re-audit: a card that has
+        // not been allocated yet has no geometry for the pick to land on.
+        this._card.connect('notify::width', () => this._onCardAllocated());
+        this._card.connect('notify::height', () => this._onCardAllocated());
         this._card.connect('scroll-event', (_actor, event) => this._onScroll(event));
         this._card.connect('button-press-event', (_actor, event) => this._onCardButtonPress(event));
 
         this._expandedView = box(true, 'ai-usage-expanded');
+        this._expandedView.x_expand = true;
+        this._expandedView.y_expand = true;
+        this._expandedView.x_align = Clutter.ActorAlign.FILL;
+        this._expandedView.y_align = Clutter.ActorAlign.FILL;
 
         const header = box(false, 'ai-usage-header');
         header.reactive = true;
@@ -356,8 +545,33 @@ export default class TokidachiExtension extends Extension {
 
         this._restoreButton = iconButton('window-restore-symbolic',
             'ai-usage-restore-button', this._t('restore'));
+        this._restoreButton.x_align = Clutter.ActorAlign.END;
+        this._restoreButton.y_align = Clutter.ActorAlign.END;
         this._restoreButton.connect('clicked', () => this._setMinimized(false));
         this._card.add_child(this._restoreButton);
+
+        this._resizeGrip = new St.Widget({
+            style_class: 'ai-usage-resize-grip',
+            reactive: true,
+            track_hover: true,
+            width: 18,
+            height: 18,
+            x_align: Clutter.ActorAlign.END,
+            y_align: Clutter.ActorAlign.END,
+            accessible_name: this._t('resizeWidget'),
+        });
+        this._resizeGrip.connect('enter-event', () => {
+            this._setResizeCursor(Meta.Cursor.SE_RESIZE);
+            return Clutter.EVENT_PROPAGATE;
+        });
+        this._resizeGrip.connect('leave-event', () => {
+            if (!this._resize)
+                this._setResizeCursor(Meta.Cursor.DEFAULT);
+            return Clutter.EVENT_PROPAGATE;
+        });
+        this._resizeGrip.connect('button-press-event', (_actor, event) =>
+            this._onResizeButtonPress(event));
+        this._card.add_child(this._resizeGrip);
 
         this._buildMenu();
         this._syncPresentation();
@@ -389,6 +603,17 @@ export default class TokidachiExtension extends Extension {
         languageButton.set_child(languageRow);
         languageButton.connect('clicked', () => this._cycleLanguage());
         this._menu.add_child(languageButton);
+
+        const layerRow = box(false, 'ai-usage-menu-row');
+        this._layerLabel = label(this._t('layer'), 'ai-usage-menu-label');
+        layerRow.add_child(this._layerLabel);
+        layerRow.add_child(new St.Widget({x_expand: true}));
+        this._layerValue = label(this._layerName(), 'ai-usage-menu-value');
+        layerRow.add_child(this._layerValue);
+        const layerButton = new St.Button({style_class: 'ai-usage-menu-item', can_focus: false});
+        layerButton.set_child(layerRow);
+        layerButton.connect('clicked', () => this._cycleLayer());
+        this._menu.add_child(layerButton);
 
         const resetButton = new St.Button({style_class: 'ai-usage-menu-item', can_focus: false});
         this._resetLabel = label(this._t('resetLayout'), 'ai-usage-menu-label');
@@ -442,6 +667,23 @@ export default class TokidachiExtension extends Extension {
         return this._t(LANGUAGE_MESSAGE_KEYS.get(this._state.language));
     }
 
+    _layerName() {
+        const selection = this._t(LAYER_MESSAGE_KEYS.get(this._state.layer) ?? 'layerAuto');
+        if (this._state.layer !== 'auto' || !this._activeLayer)
+            return selection;
+        return `${selection} · ${this._t(LAYER_MESSAGE_KEYS.get(this._activeLayer))}`;
+    }
+
+    _cycleLayer() {
+        const index = LAYER_SELECTIONS.indexOf(this._state.layer);
+        this._state.layer = LAYER_SELECTIONS[(index + 1) % LAYER_SELECTIONS.length];
+        this._writeState();
+        this._applyLayer(this._state.layer === 'overlay' ? 'overlay' : 'desktop');
+        if (this._state.layer === 'auto')
+            this._scheduleInputAudit(200);
+        this._layerValue.text = this._layerName();
+    }
+
     _cycleTheme() {
         const index = THEME_ORDER.indexOf(this._state.theme);
         const next = THEME_ORDER[(index + 1) % THEME_ORDER.length];
@@ -465,8 +707,11 @@ export default class TokidachiExtension extends Extension {
         this._themeValue.text = this._themeName();
         this._languageLabel.text = this._t('language');
         this._languageValue.text = this._languageName();
+        this._layerLabel.text = this._t('layer');
+        this._layerValue.text = this._layerName();
         this._resetLabel.text = this._t('resetLayout');
         this._refreshMenuLabel.text = this._t('refreshNow');
+        this._resizeGrip.accessible_name = this._t('resizeWidget');
         this._refreshButton.accessible_name = this._t('refreshNow');
         this._minimizeButton.accessible_name = this._t('minimize');
         this._restoreButton.accessible_name = this._t('restore');
@@ -490,10 +735,16 @@ export default class TokidachiExtension extends Extension {
     }
 
     _toggleMenu() {
-        this._menuOpen = !this._menuOpen;
-        this._menu.visible = this._menuOpen;
-        if (this._menuOpen)
-            this._card.set_child_above_sibling(this._menu, null);
+        if (this._menuOpen) {
+            this._closeMenu();
+            return;
+        }
+        this._menuOpen = true;
+        this._menu.visible = true;
+        this._card.set_child_above_sibling(this._menu, null);
+        // Hold the pointer while the menu is open so a click anywhere else
+        // closes it, even when another actor owns the desktop underneath.
+        this._menuCapture = {grab: this._grabPointer(), target: this._card};
     }
 
     _closeMenu() {
@@ -501,6 +752,8 @@ export default class TokidachiExtension extends Extension {
             return;
         this._menuOpen = false;
         this._menu.visible = false;
+        this._releasePointer(this._menuCapture);
+        this._menuCapture = null;
     }
 
     _makeProvider(name, visuals) {
@@ -596,6 +849,47 @@ export default class TokidachiExtension extends Extension {
         return index >= 0 ? index : this._validMonitorIndex(this._layoutState.monitorIndex);
     }
 
+    // Listening for motion on the stage only works while the pointer events
+    // actually reach the stage. A window sitting over the desktop (or over
+    // the card in the overlay layer) swallows them and the drag dies halfway.
+    // A Clutter grab routes every pointer event to the card until released.
+    _grabPointer() {
+        if (typeof global.stage.grab !== 'function')
+            return null;
+        try {
+            return global.stage.grab(this._card);
+        } catch (_error) {
+            return null;
+        }
+    }
+
+    _capturePointer(onMotion, onRelease) {
+        const grab = this._grabPointer();
+        const target = grab ? this._card : global.stage;
+        return {
+            grab,
+            target,
+            motionId: target.connect('motion-event', (_actor, event) => onMotion(event)),
+            releaseId: target.connect('button-release-event', () => onRelease()),
+        };
+    }
+
+    _releasePointer(capture) {
+        if (!capture)
+            return;
+        if (capture.motionId)
+            capture.target.disconnect(capture.motionId);
+        if (capture.releaseId)
+            capture.target.disconnect(capture.releaseId);
+        if (capture.grab) {
+            try {
+                capture.grab.dismiss();
+            } catch (_error) {
+                // The grab is already gone; nothing left to release.
+            }
+        }
+    }
+
     _onHeaderButtonPress(event) {
         if (event.get_button() !== 1)
             return Clutter.EVENT_PROPAGATE;
@@ -608,9 +902,8 @@ export default class TokidachiExtension extends Extension {
             cardY: this._card.y,
             moved: false,
         };
-        this._dragMotionId = global.stage.connect('motion-event',
-            (_actor, motionEvent) => this._onDragMotion(motionEvent));
-        this._dragReleaseId = global.stage.connect('button-release-event',
+        this._dragCapture = this._capturePointer(
+            motionEvent => this._onDragMotion(motionEvent),
             () => this._endDrag());
         return Clutter.EVENT_STOP;
     }
@@ -629,16 +922,12 @@ export default class TokidachiExtension extends Extension {
     }
 
     _endDrag() {
-        if (this._dragMotionId) {
-            global.stage.disconnect(this._dragMotionId);
-            this._dragMotionId = null;
-        }
-        if (this._dragReleaseId) {
-            global.stage.disconnect(this._dragReleaseId);
-            this._dragReleaseId = null;
-        }
-        if (this._drag?.moved)
+        this._releasePointer(this._dragCapture);
+        this._dragCapture = null;
+        if (this._drag?.moved) {
             this._scheduleStateSave();
+            this._scheduleInputAudit();
+        }
         this._drag = null;
     }
 
@@ -676,6 +965,56 @@ export default class TokidachiExtension extends Extension {
         return Clutter.EVENT_STOP;
     }
 
+    _onResizeButtonPress(event) {
+        if (event.get_button() !== 1)
+            return Clutter.EVENT_PROPAGATE;
+        this._closeMenu();
+        const [x, y] = event.get_coords();
+        this._resize = {
+            pointerX: x,
+            pointerY: y,
+            scale: this._layoutState.scale,
+            moved: false,
+        };
+        this._resizeCapture = this._capturePointer(
+            motionEvent => this._onResizeMotion(motionEvent),
+            () => this._endResize());
+        this._setResizeCursor(Meta.Cursor.SE_RESIZE);
+        return Clutter.EVENT_STOP;
+    }
+
+    _onResizeMotion(event) {
+        if (!this._resize)
+            return Clutter.EVENT_PROPAGATE;
+        const [x, y] = event.get_coords();
+        const dx = x - this._resize.pointerX;
+        const dy = y - this._resize.pointerY;
+        if (!this._resize.moved && Math.hypot(dx, dy) < 3)
+            return Clutter.EVENT_PROPAGATE;
+        this._resize.moved = true;
+        const baseSize = Math.max(this._card.width, this._card.height, 1);
+        const pointerDelta = (dx + dy) / 2;
+        const nextScale = this._resize.scale + pointerDelta / baseSize;
+        this._setScale(nextScale);
+        return Clutter.EVENT_STOP;
+    }
+
+    _endResize() {
+        this._releasePointer(this._resizeCapture);
+        this._resizeCapture = null;
+        this._setResizeCursor(Meta.Cursor.DEFAULT);
+        this._resize = null;
+    }
+
+    _setResizeCursor(cursor) {
+        try {
+            global.display.set_cursor(cursor);
+        } catch (_error) {
+            // Cursor changes are a visual enhancement; resizing still works
+            // on Shell versions without this Meta.Display method.
+        }
+    }
+
     _setScale(scale) {
         this._layoutState.scale = clamp(scale, this._minimumScale(), this._maximumScale());
         this._card.set_scale(this._layoutState.scale, this._layoutState.scale);
@@ -684,6 +1023,11 @@ export default class TokidachiExtension extends Extension {
     }
 
     _onCardButtonPress(event) {
+        const [x, y] = event.get_coords();
+        if (this._menuOpen && !this._pointInMenu(x, y)) {
+            this._closeMenu();
+            return Clutter.EVENT_STOP;
+        }
         if (event.get_button() === 3) {
             this._toggleMenu();
             return Clutter.EVENT_STOP;
@@ -691,15 +1035,20 @@ export default class TokidachiExtension extends Extension {
         return Clutter.EVENT_PROPAGATE;
     }
 
+    _pointInMenu(x, y) {
+        if (!this._menu)
+            return false;
+        const [menuX, menuY] = this._menu.get_transformed_position();
+        const [menuWidth, menuHeight] = this._menu.get_transformed_size();
+        return x >= menuX && x <= menuX + menuWidth &&
+            y >= menuY && y <= menuY + menuHeight;
+    }
+
     _onStageButtonPress(event) {
         if (!this._menuOpen || !this._card)
             return Clutter.EVENT_PROPAGATE;
         const [x, y] = event.get_coords();
-        const [menuX, menuY] = this._menu.get_transformed_position();
-        const [menuWidth, menuHeight] = this._menu.get_transformed_size();
-        const inside = x >= menuX && x <= menuX + menuWidth &&
-            y >= menuY && y <= menuY + menuHeight;
-        if (!inside)
+        if (!this._pointInMenu(x, y))
             this._closeMenu();
         return Clutter.EVENT_PROPAGATE;
     }
@@ -717,9 +1066,11 @@ export default class TokidachiExtension extends Extension {
     }
 
     _syncPresentation() {
+        const wasVisible = this._cardVisible === true;
         const minimized = this._state.minimized;
         this._expandedView.visible = !minimized;
         this._restoreButton.visible = minimized;
+        this._resizeGrip.visible = !minimized;
         if (minimized) {
             this._closeMenu();
             this._card.add_style_class_name('minimized');
@@ -728,6 +1079,11 @@ export default class TokidachiExtension extends Extension {
             this._card.remove_style_class_name('minimized');
             this._card.visible = this._hasVisibleProviders === true;
         }
+        // A hidden card has no size to pick against, so the layer audit is a
+        // no-op while it is invisible: run it again as soon as it shows up.
+        this._cardVisible = this._card.visible;
+        if (this._cardVisible && !wasVisible)
+            this._scheduleInputAudit();
         this._syncPetAnimations();
     }
 
@@ -743,6 +1099,12 @@ export default class TokidachiExtension extends Extension {
                 Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE
             );
             this._process.communicate_utf8_async(null, null, (process, result) => {
+                // disable() can run while the collector is still working; the
+                // callback then lands on an already destroyed widget tree.
+                if (!this._card) {
+                    this._process = null;
+                    return;
+                }
                 try {
                     const [, stdout, stderr] = process.communicate_utf8_finish(result);
                     if (!process.get_successful())

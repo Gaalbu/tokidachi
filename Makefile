@@ -11,6 +11,9 @@ test:
 	node --experimental-default-type=module --test tests/provider-model.test.js
 	node --test tests/ui-source.test.js
 	node --test tests/branding.test.js
+	node --experimental-default-type=module --import ./tests/harness/register.mjs \
+		--test tests/extension-behavior.test.js
+	./scripts/gjs-test.sh
 	bash -n scripts/install.sh scripts/uninstall.sh scripts/package.sh
 
 jar:

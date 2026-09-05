@@ -12,6 +12,25 @@
   transition-duration: 150ms;
 }
 
+.ai-usage-resize-grip {
+  margin: 0 3px 3px 0;
+  border-right: 2px solid rgba(205, 214, 244, 0.45);
+  border-bottom: 2px solid rgba(205, 214, 244, 0.45);
+  border-radius: 0 0 4px 0;
+}
+
+.ai-usage-resize-grip:hover {
+  border-color: #89b4fa;
+}
+
+.theme-light .ai-usage-resize-grip {
+  border-color: rgba(76, 79, 105, 0.42);
+}
+
+.theme-light .ai-usage-resize-grip:hover {
+  border-color: #1e66f5;
+}
+
 .ai-usage-card.theme-dark {
   color: #cdd6f4;
   background-color: rgba(30, 30, 46, 0.88);
