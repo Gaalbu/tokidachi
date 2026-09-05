@@ -14,6 +14,40 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # The extension declares support for GNOME 45 to 48, but the machine that
+  # develops it only has one of them. Each container carries the real Clutter,
+  # Meta and St introspection data for its GNOME release, so the API surface
+  # the extension depends on is checked against every version it claims.
+  #
+  # Fedora 39 and 40 are out of support. Their repositories still serve these
+  # packages today; if that changes the job fails loudly rather than silently
+  # skipping, and the fix is either an archive mirror or dropping that GNOME
+  # version from metadata.json.
+  gnome-api-surface:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - gnome: '45'
+            image: 'fedora:39'
+          - gnome: '46'
+            image: 'fedora:40'
+          - gnome: '47'
+            image: 'fedora:41'
+          - gnome: '48'
+            image: 'fedora:42'
+    container: ${{ matrix.image }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install GNOME introspection data
+        run: dnf install -y gjs mutter gnome-shell
+      - name: Report versions
+        run: rpm -q --qf 'mutter %{VERSION}\ngnome-shell %{VERSION}\n' mutter gnome-shell
+      - name: Check the API surface for GNOME ${{ matrix.gnome }}
+        run: ./scripts/gjs-test.sh --require
+
   test:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
