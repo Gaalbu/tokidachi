@@ -50,7 +50,7 @@ final class ClaudeProvider implements UsageProvider {
                 .timeout(Duration.ofSeconds(15))
                 .header("Authorization", "Bearer " + token)
                 .header("anthropic-beta", BETA)
-                .header("User-Agent", "tokidachi/0.3.0")
+                .header("User-Agent", "tokidachi/0.4.0")
                 .GET()
                 .build();
         try {

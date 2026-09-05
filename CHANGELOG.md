@@ -4,7 +4,22 @@ All notable changes to Tokidachi are recorded here. Versions follow the
 collector version in `pom.xml`; the GNOME extension version lives in
 `tokidachi@gaalbu.github.io/metadata.json`.
 
-## Unreleased
+## 0.4.0 — 2026-09-05
+
+### Added
+
+- Opt-in OpenAI and Anthropic API cost estimates, configured per adapter in
+  `config/api-usage.json` and shipped disabled by default.
+- OpenCode session activity provider.
+- `layer` setting (`auto`, `desktop`, `overlay`) in `config.json` and in the
+  widget menu, translated in English and Portuguese (Brazil).
+- Native collector builds for Windows and macOS in CI.
+- `tests/extension-behavior.test.js`: the extension now runs against a stub
+  GNOME Shell (`tests/harness`) covering layers, grabs, placement, storage and
+  teardown.
+- `tests/gjs/api-surface.js` (via `scripts/gjs-test.sh`): checks every Clutter,
+  Meta, St, GLib and Gio symbol the extension uses against the GNOME
+  introspection data installed on the machine, and skips cleanly elsewhere.
 
 ### Fixed
 
@@ -46,13 +61,11 @@ collector version in `pom.xml`; the GNOME extension version lives in
 - A collector reply that arrives after `disable()` no longer lands on a
   destroyed widget tree.
 
-### Added
+- Codex usage limits follow the current upstream format again.
+- The release archive includes `config/api-usage.json`.
 
-- `layer` setting (`auto`, `desktop`, `overlay`) in `config.json` and in the
-  widget menu, translated in English and Portuguese (Brazil).
-- `tests/extension-behavior.test.js`: the extension now runs against a stub
-  GNOME Shell (`tests/harness`) covering layers, grabs, placement, storage and
-  teardown.
-- `tests/gjs/api-surface.js` (via `scripts/gjs-test.sh`): checks every Clutter,
-  Meta, St, GLib and Gio symbol the extension uses against the GNOME
-  introspection data installed on the machine, and skips cleanly elsewhere.
+### Changed
+
+- The collector `User-Agent` reports `tokidachi/0.4.0` on every provider; the
+  two request paths had drifted to different versions.
+- Extension `version` bumped to 6 for extensions.gnome.org.
