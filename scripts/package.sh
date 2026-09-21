@@ -16,7 +16,7 @@ fi
 
 rm -rf -- "$STAGE_ROOT"
 mkdir -p "$EXTENSION_STAGE" "$STAGE_ROOT/scripts" "$STAGE_ROOT/config" "$DIST_DIR"
-for file in metadata.json extension.js i18n.js providerModel.js stylesheet.css config.json; do
+for file in metadata.json extension.js extension-config.js extension-config-methods.js extension-support.js extension-lifecycle.js extension-ui.js extension-interaction.js extension-rendering.js i18n.js providerModel.js stylesheet.css config.json; do
     install -m 0644 "$PROJECT_DIR/$UUID/$file" "$EXTENSION_STAGE/$file"
 done
 cp -a -- "$PROJECT_DIR/$UUID/pets" "$EXTENSION_STAGE/pets"

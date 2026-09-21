@@ -12,7 +12,19 @@ test('public runtime and release identity is Tokidachi', () => {
     assert.equal(metadata.name, 'Tokidachi');
     assert.equal(metadata.url, 'https://github.com/Gaalbu/tokidachi');
 
-    assert.match(read('tokidachi@gaalbu.github.io/extension.js'),
+    const runtimeFiles = [
+        'extension.js',
+        'extension-config.js',
+        'extension-config-methods.js',
+        'extension-support.js',
+        'extension-lifecycle.js',
+        'extension-ui.js',
+        'extension-interaction.js',
+        'extension-rendering.js',
+        'i18n.js',
+        'providerModel.js',
+    ];
+    assert.match(runtimeFiles.map(file => read(`tokidachi@gaalbu.github.io/${file}`)).join('\n'),
         /label\('Tokidachi', 'ai-usage-title'\)/);
 
     assert.match(read('pom.xml'), /<artifactId>tokidachi<\/artifactId>/);

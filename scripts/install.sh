@@ -10,7 +10,7 @@ readonly BACKUP_ROOT="${XDG_STATE_HOME:-$HOME/.local/state}/tokidachi/backups"
 readonly CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/tokidachi"
 readonly USER_API_CONFIG="$CONFIG_DIR/api-usage.json"
 readonly DEFAULT_API_CONFIG="$PROJECT_DIR/config/api-usage.json"
-readonly EXTENSION_FILES=(metadata.json extension.js i18n.js providerModel.js stylesheet.css config.json)
+readonly EXTENSION_FILES=(metadata.json extension.js extension-config.js extension-config-methods.js extension-support.js extension-lifecycle.js extension-ui.js extension-interaction.js extension-rendering.js i18n.js providerModel.js stylesheet.css config.json)
 
 enable_extension() {
     if gnome-extensions enable "$UUID" 2>/dev/null; then

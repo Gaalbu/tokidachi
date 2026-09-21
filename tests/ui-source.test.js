@@ -4,8 +4,19 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const root = path.resolve(__dirname, '..');
-const extension = fs.readFileSync(
-    path.join(root, 'tokidachi@gaalbu.github.io', 'extension.js'), 'utf8');
+const extension = [
+    'extension.js',
+    'extension-config.js',
+    'extension-config-methods.js',
+    'extension-support.js',
+    'extension-lifecycle.js',
+    'extension-ui.js',
+    'extension-interaction.js',
+    'extension-rendering.js',
+    'i18n.js',
+    'providerModel.js',
+].map(file => fs.readFileSync(
+    path.join(root, 'tokidachi@gaalbu.github.io', file), 'utf8')).join('\n');
 const stylesheet = fs.readFileSync(
     path.join(root, 'tokidachi@gaalbu.github.io', 'stylesheet.css'), 'utf8');
 
@@ -15,6 +26,14 @@ test('theme menu keeps its label distinct from the selected value', () => {
     assert.match(stylesheet, /\.ai-usage-menu-value\s*\{[^}]*border-radius:/s);
     assert.match(stylesheet, /\.ai-usage-menu-value\s*\{[^}]*padding:/s);
     assert.match(extension, /providerNotices\(provider\)/);
+});
+
+test('menu is laid out below usage content instead of overlaying providers', () => {
+    assert.ok(extension.includes("this._contentView = box(true, 'ai-usage-content');"));
+    assert.ok(extension.includes('this._contentView.add_child(this._expandedView)'));
+    assert.ok(extension.includes('this._contentView.add_child(this._menu)'));
+    assert.ok(extension.includes('this._card.add_child(this._contentView)'));
+    assert.equal(extension.includes('this._card.add_child(this._menu)'), false);
 });
 
 test('resize grip uses the shared scale clamp and persists through the layout state', () => {
